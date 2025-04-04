@@ -13,7 +13,6 @@ export async function POST(request: Request) {
     
     // Check if user is authenticated
     const session = await getServerSession(authOptions);
-    
     if (!session?.user?.email) {
       console.log("Upload failed: User not authenticated");
       return new NextResponse('Unauthorized', { status: 401 });
@@ -31,6 +30,7 @@ export async function POST(request: Request) {
     const madeForKids = formData.get('madeForKids') === 'true';
     const privacyStatus = formData.get('privacyStatus') as string;
     const playlistId = formData.get('playlistId') as string;
+    const googleAccountId = formData.get('googleAccountId') as string;
     
     // Log received form data for debugging
     console.log("Form data received:", {
@@ -39,34 +39,21 @@ export async function POST(request: Request) {
       tags: tags ? "Present" : "Missing",
       videoFile: videoFile ? `${videoFile.name} (${videoFile.size} bytes)` : "Missing",
       thumbnailFile: thumbnailFile ? `${thumbnailFile.name} (${thumbnailFile.size} bytes)` : "None",
-      madeForKids: madeForKids,
-      privacyStatus: privacyStatus,
-      playlistId: playlistId || "None"
+      madeForKids,
+      privacyStatus,
+      playlistId: playlistId || "None",
+      googleAccountId: googleAccountId || "None"
     });
     
-    if (!title || !description || !videoFile || !privacyStatus) {
+    if (!title || !description || !videoFile || !privacyStatus || !googleAccountId) {
       console.log("Upload failed: Missing required fields");
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    // Get the user from the database
+    // Get the user from the database (only need id and email now)
     const user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email,
-      },
-      select: {
-        id: true,
-        email: true,
-        googleConnected: true,
-        googleRefreshToken: true
-      }
-    });
-
-    console.log("User data from database:", {
-      id: user?.id,
-      email: user?.email,
-      googleConnected: user?.googleConnected,
-      hasRefreshToken: !!user?.googleRefreshToken
+      where: { email: session.user.email },
+      select: { id: true, email: true }
     });
 
     if (!user) {
@@ -74,12 +61,21 @@ export async function POST(request: Request) {
       return new NextResponse('User not found', { status: 404 });
     }
     
-    if (!user.googleRefreshToken) {
-      console.log("Upload failed: Google refresh token not found");
-      return new NextResponse('Google account not properly connected. Please reconnect your Google account.', { status: 400 });
+    // Get the user's Google account (to retrieve the refresh token)
+    const googleAccount = await prisma.googleAccount.findFirst({
+      where: {
+        userId: user.id,
+        id: googleAccountId
+      },
+      select: { refreshToken: true }
+    });
+
+    if (!googleAccount) {
+      console.log("Upload failed: Google account not found");
+      return new NextResponse('Google account not found. Please reconnect your Google account.', { status: 404 });
     }
 
-    // Initialize the OAuth2 client
+    // Initialize the OAuth2 client with the refresh token from GoogleAccount
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
@@ -89,21 +85,18 @@ export async function POST(request: Request) {
     console.log("OAuth client initialized");
 
     // Log refresh token (first few chars for debugging)
-    const tokenPreview = user.googleRefreshToken.substring(0, 5) + "...";
+    const tokenPreview = googleAccount.refreshToken.substring(0, 5) + "...";
     console.log(`Using refresh token: ${tokenPreview}`);
 
-    // Set credentials using the refresh token
     oauth2Client.setCredentials({
-      refresh_token: user.googleRefreshToken,
+      refresh_token: googleAccount.refreshToken,
     });
 
-    // Get a new access token
+    // Refresh the access token
     try {
       console.log("Refreshing access token");
       const { credentials } = await oauth2Client.refreshAccessToken();
       console.log("Access token refreshed successfully");
-      
-      // Update credentials with the new access token
       oauth2Client.setCredentials(credentials);
     } catch (tokenError) {
       console.error("Error refreshing access token:", tokenError);
@@ -118,22 +111,15 @@ export async function POST(request: Request) {
 
     console.log("YouTube client initialized");
 
-    // Convert the file to buffer
-    console.log(`Converting file ${videoFile.name} (${videoFile.size} bytes) to buffer`);
+    // Convert the video file to a buffer and create a readable stream.
     const arrayBuffer = await videoFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    console.log(`File converted to buffer (${buffer.length} bytes)`);
-
-    // Create a readable stream from the buffer
     const bufferStream = new Readable();
     bufferStream.push(buffer);
-    bufferStream.push(null); // Mark the end of the stream
+    bufferStream.push(null);
 
-    // Set up the upload parameters
-    console.log("Starting YouTube upload");
-    
+    // Upload the video
     try {
-      // Upload the video
       const res = await youtube.videos.insert({
         part: ['snippet', 'status'],
         requestBody: {
@@ -143,7 +129,7 @@ export async function POST(request: Request) {
             tags: tags ? tags.split(',').map(tag => tag.trim()) : undefined,
           },
           status: {
-            privacyStatus: privacyStatus, // 'private', 'public', or 'unlisted'
+            privacyStatus, // 'private', 'public', or 'unlisted'
             selfDeclaredMadeForKids: madeForKids,
           },
         },
@@ -155,15 +141,11 @@ export async function POST(request: Request) {
       const videoId = res.data.id as string;
       console.log("Video uploaded successfully:", videoId);
 
-      // If thumbnail was provided, upload it
+      // If thumbnail was provided, upload it.
       if (thumbnailFile) {
         try {
-          console.log(`Uploading thumbnail: ${thumbnailFile.name}`);
-          // Convert thumbnail to buffer
           const thumbnailArrayBuffer = await thumbnailFile.arrayBuffer();
           const thumbnailBuffer = Buffer.from(thumbnailArrayBuffer);
-
-          // Upload the thumbnail
           await youtube.thumbnails.set({
             videoId: videoId,
             media: {
@@ -173,14 +155,12 @@ export async function POST(request: Request) {
           console.log("Thumbnail uploaded successfully");
         } catch (thumbnailError: any) {
           console.error("Error uploading thumbnail:", thumbnailError.message || thumbnailError);
-          // Don't fail the whole process if thumbnail upload fails
         }
       }
 
-      // If playlist ID was provided, add the video to the playlist
+      // If a playlist ID was provided, add the video to the playlist.
       if (playlistId) {
         try {
-          console.log(`Adding video to playlist: ${playlistId}`);
           await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
@@ -196,7 +176,6 @@ export async function POST(request: Request) {
           console.log("Video added to playlist successfully");
         } catch (playlistError: any) {
           console.error("Error adding to playlist:", playlistError.message || playlistError);
-          // Don't fail the whole process if playlist addition fails
         }
       }
 
@@ -206,27 +185,17 @@ export async function POST(request: Request) {
       });
     } catch (youtubeError: any) {
       console.error("YouTube API error:", youtubeError.message || youtubeError);
-      
-      // Handle specific YouTube API errors
       if (youtubeError.message && youtubeError.message.includes("quota")) {
         return new NextResponse('YouTube API quota exceeded. Please try again later.', { status: 429 });
       }
-      
       if (youtubeError.message && youtubeError.message.includes("permission")) {
         return new NextResponse('Insufficient permissions. Please reconnect your Google account with appropriate permissions.', { status: 403 });
       }
-      
-      return new NextResponse(
-        `YouTube upload failed: ${youtubeError.message || 'Unknown YouTube API error'}`,
-        { status: 500 }
-      );
+      return new NextResponse(`YouTube upload failed: ${youtubeError.message || 'Unknown error'}`, { status: 500 });
     }
   } catch (error: any) {
     console.error('Upload error:', error);
-    return new NextResponse(
-      `Error uploading video: ${error.message || 'Unknown error'}`,
-      { status: 500 }
-    );
+    return new NextResponse(`Error uploading video: ${error.message || 'Unknown error'}`, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

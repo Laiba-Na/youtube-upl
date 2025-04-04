@@ -9,6 +9,7 @@ export default function Upload() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Form fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
@@ -21,6 +22,9 @@ export default function Upload() {
     Array<{ id: string; title: string }>
   >([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState("");
+  const [selectedGoogleAccountId, setSelectedGoogleAccountId] = useState("");
+
+  // Upload and UI state
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -29,77 +33,53 @@ export default function Upload() {
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
-    // If not authenticated, redirect to login
     if (status === "unauthenticated") {
       router.push("/login");
     }
-
-    // If authenticated but Google not connected, redirect to connect-google
-    if (status === "authenticated" && !session?.user?.googleConnected) {
+    // If authenticated but no connected Google accounts exist, redirect to connect page
+    if (
+      status === "authenticated" &&
+      (!session?.user?.googleAccounts ||
+        session.user.googleAccounts.length === 0)
+    ) {
       router.push("/connect-google");
     }
-
-    // Fetch user playlists if authenticated and Google connected
-    if (status === "authenticated" && session?.user?.googleConnected) {
+    // If authenticated and Google accounts exist, set the default selection and fetch playlists
+    if (
+      status === "authenticated" &&
+      session?.user?.googleAccounts &&
+      session.user.googleAccounts.length > 0
+    ) {
+      if (!selectedGoogleAccountId) {
+        setSelectedGoogleAccountId(session.user.googleAccounts[0].id);
+      }
       fetchUserPlaylists();
     }
-  }, [status, session, router]);
+  }, [status, session, router, selectedGoogleAccountId]);
 
   const fetchUserPlaylists = async () => {
     setLoadingPlaylists(true);
     setError("");
-
     try {
-      console.log("Fetching playlists...");
       const response = await fetch("/api/youtube/playlists", {
-        // Include credentials to ensure cookies are sent
         credentials: "include",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
       });
-
-      console.log("Response status:", response.status);
-
-      // Log the raw response text for debugging
-      const responseText = await response.text();
-      console.log("Response text:", responseText);
-
-      // If response is not ok, throw an error
       if (!response.ok) {
-        throw new Error(`Failed to fetch playlists: ${responseText}`);
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to fetch playlists");
       }
-
-      // Parse JSON separately
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        console.log("Playlists data:", data);
-        setPlaylists(data.playlists || []);
-      } catch (parseError) {
-        console.error("Error parsing JSON:", parseError);
-        throw new Error(`Failed to parse playlist data: ${responseText}`);
-      }
-    } catch (error: any) {
-      console.error("Error fetching playlists:", error);
-      setError(error.message || "Failed to fetch playlists");
-      setDebugInfo({ error: error.message, stack: error.stack });
+      const data = await response.json();
+      setPlaylists(data.playlists || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch playlists");
     } finally {
       setLoadingPlaylists(false);
     }
   };
 
-  const handleRetryFetchPlaylists = () => {
-    fetchUserPlaylists();
-  };
-
   const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      console.log(
-        `Selected video file: ${file.name} (${file.size} bytes, type: ${file.type})`
-      );
-      setVideoFile(file);
+      setVideoFile(e.target.files[0]);
     }
   };
 
@@ -108,14 +88,8 @@ export default function Upload() {
   ) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      console.log(
-        `Selected thumbnail: ${file.name} (${file.size} bytes, type: ${file.type})`
-      );
       setThumbnailFile(file);
-
-      // Create preview URL
-      const fileUrl = URL.createObjectURL(file);
-      setThumbnailPreview(fileUrl);
+      setThumbnailPreview(URL.createObjectURL(file));
     }
   };
 
@@ -124,71 +98,61 @@ export default function Upload() {
       setError("Please enter a title");
       return false;
     }
-
     if (!description.trim()) {
       setError("Please enter a description");
       return false;
     }
-
     if (!videoFile) {
       setError("Please select a video file");
       return false;
     }
-
     if (!privacyStatus) {
       setError("Please select a privacy setting");
       return false;
     }
-
-    // Check video file size (max 128MB for testing, adjust as needed)
-    const maxVideoSize = 128 * 1024 * 1024; // 128MB
+    // Video file size check (max 128MB)
+    const maxVideoSize = 128 * 1024 * 1024;
     if (videoFile.size > maxVideoSize) {
       setError(
         `Video file too large. Maximum size is ${
           maxVideoSize / (1024 * 1024)
-        }MB`
+        } MB`
       );
       return false;
     }
-
-    // Check thumbnail file if selected
+    // Thumbnail file check (if exists, max 2MB & valid image format)
     if (thumbnailFile) {
-      // Check thumbnail size (max 2MB)
-      const maxThumbnailSize = 2 * 1024 * 1024; // 2MB
+      const maxThumbnailSize = 2 * 1024 * 1024;
       if (thumbnailFile.size > maxThumbnailSize) {
         setError(
           `Thumbnail file too large. Maximum size is ${
             maxThumbnailSize / (1024 * 1024)
-          }MB`
+          } MB`
         );
         return false;
       }
-
-      // Check if it's a valid image format
       const validImageTypes = ["image/jpeg", "image/png", "image/jpg"];
       if (!validImageTypes.includes(thumbnailFile.type)) {
         setError("Thumbnail must be a JPEG or PNG file");
         return false;
       }
     }
-
+    if (!selectedGoogleAccountId) {
+      setError("Please select a Google account for uploading");
+      return false;
+    }
     return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setError("");
     setMessage("");
     setDebugInfo(null);
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsUploading(true);
-
-    // Show progress animation
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev >= 95) {
@@ -206,69 +170,42 @@ export default function Upload() {
       formData.append("tags", tags);
       formData.append("madeForKids", madeForKids.toString());
       formData.append("privacyStatus", privacyStatus);
-
       if (selectedPlaylist) {
         formData.append("playlistId", selectedPlaylist);
       }
-
+      // Append selected Google account ID so that the API uses the right connection
+      formData.append("googleAccountId", selectedGoogleAccountId);
       if (videoFile) {
         formData.append("videoFile", videoFile);
       }
-
       if (thumbnailFile) {
         formData.append("thumbnailFile", thumbnailFile);
       }
-
-      console.log("Submitting form data:", {
-        title,
-        description,
-        tags,
-        madeForKids,
-        privacyStatus,
-        playlistId: selectedPlaylist || "none",
-        videoFile: videoFile
-          ? `${videoFile.name} (${videoFile.size} bytes)`
-          : "none",
-        thumbnailFile: thumbnailFile
-          ? `${thumbnailFile.name} (${thumbnailFile.size} bytes)`
-          : "none",
-      });
-
       const response = await fetch("/api/youtube/upload", {
         method: "POST",
         body: formData,
         credentials: "include",
       });
-
       clearInterval(progressInterval);
 
-      // Get response as text first to handle both JSON and non-JSON responses
       const responseText = await response.text();
-
-      // Try to parse as JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        // If not JSON, use the raw text
         data = { message: responseText };
       }
-
-      // For debugging, save response info
       setDebugInfo({
         status: response.status,
         statusText: response.statusText,
         data,
       });
-
       if (!response.ok) {
-        throw new Error(data.message || responseText || "Upload failed");
+        throw new Error(data.message || "Upload failed");
       }
-
       setUploadProgress(100);
       setMessage(`Video uploaded successfully! Video ID: ${data.videoId}`);
-
-      // Reset form
+      // Reset the form fields
       setTitle("");
       setDescription("");
       setTags("");
@@ -278,14 +215,12 @@ export default function Upload() {
       setMadeForKids(false);
       setPrivacyStatus("private");
       setSelectedPlaylist("");
-
-      // Reset file input
       if (formRef.current) {
         formRef.current.reset();
       }
-    } catch (error: any) {
+    } catch (err: any) {
       clearInterval(progressInterval);
-      setError(error.message || "Something went wrong");
+      setError(err.message || "Something went wrong");
       setUploadProgress(0);
     } finally {
       setIsUploading(false);
@@ -299,80 +234,84 @@ export default function Upload() {
       </div>
     );
   }
-  // In your upload page
+
+  // If authenticated but no connected Google accounts exist, prompt user to connect one.
   if (
     status === "authenticated" &&
-    session?.user?.googleConnected &&
-    error.includes("Insufficient Permission")
+    session?.user &&
+    (!session.user.googleAccounts || session.user.googleAccounts.length === 0)
   ) {
-    // Show a message asking the user to reconnect their Google account with new permissions
     return (
-      <div>
-        <p>We need additional permissions to access your YouTube playlists.</p>
-        <button onClick={() => router.push("/connect-google")}>
-          Reconnect Google Account
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p>
+          No connected Google accounts. Please connect your Google account
+          first.
+        </p>
+        <button
+          onClick={() => router.push("/connect-google")}
+          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Connect Google Account
         </button>
       </div>
     );
   }
+
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-8 bg-white p-8 rounded-lg shadow">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
-            Upload Video to YouTube
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Upload your video directly to your YouTube channel
-          </p>
-        </div>
-
+      <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
+        <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-4">
+          Upload Video to YouTube
+        </h2>
         {message && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
             {message}
           </div>
         )}
-
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-            <strong className="font-bold">Error: </strong>
-            <span className="block sm:inline">{error}</span>
-            {error.includes("Failed to fetch playlists") && (
-              <button
-                onClick={handleRetryFetchPlaylists}
-                className="mt-2 bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-sm"
-              >
-                Retry Loading Playlists
-              </button>
-            )}
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
           </div>
         )}
-
-        {/* Connection status */}
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
+        {/* Display connection status and allow account selection */}
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4">
           <p>
             <strong>Status:</strong>{" "}
             {status === "authenticated" ? "Signed in" : "Not signed in"}
-          </p>
-          <p>
-            <strong>Google Connected:</strong>{" "}
-            {session?.user?.googleConnected ? "Yes" : "No"}
           </p>
           {session?.user?.email && (
             <p>
               <strong>Email:</strong> {session.user.email}
             </p>
           )}
+          {session?.user?.googleAccounts &&
+            session.user.googleAccounts.length > 0 && (
+              <div className="mt-2">
+                <p className="font-semibold">
+                  Select Google Account for Upload:
+                </p>
+                <select
+                  value={selectedGoogleAccountId}
+                  onChange={(e) => setSelectedGoogleAccountId(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+                >
+                  {session.user.googleAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.googleEmail}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
         </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit} ref={formRef}>
+        {/* Upload form */}
+        <form onSubmit={handleSubmit} ref={formRef}>
           <div className="space-y-4">
-            {/* Required fields section */}
+            {/* Required Information */}
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
               <h3 className="text-lg font-medium text-gray-800 mb-3">
                 Required Information
               </h3>
-
               <div className="mb-4">
                 <label
                   htmlFor="title"
@@ -385,14 +324,13 @@ export default function Upload() {
                   name="title"
                   type="text"
                   required
-                  className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 border"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Enter video title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={isUploading}
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="description"
@@ -405,14 +343,13 @@ export default function Upload() {
                   name="description"
                   rows={4}
                   required
-                  className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 border"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Enter video description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isUploading}
                 ></textarea>
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="videoFile"
@@ -437,7 +374,6 @@ export default function Upload() {
                   </p>
                 )}
               </div>
-
               <div className="mb-4 grid grid-cols-2 gap-4">
                 <div>
                   <label
@@ -475,7 +411,6 @@ export default function Upload() {
                     </label>
                   </div>
                 </div>
-
                 <div>
                   <label
                     htmlFor="privacyStatus"
@@ -488,7 +423,7 @@ export default function Upload() {
                     name="privacyStatus"
                     value={privacyStatus}
                     onChange={(e) => setPrivacyStatus(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
                     disabled={isUploading}
                     required
                   >
@@ -499,13 +434,11 @@ export default function Upload() {
                 </div>
               </div>
             </div>
-
-            {/* Additional options section */}
+            {/* Additional Options */}
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
               <h3 className="text-lg font-medium text-gray-800 mb-3">
                 Additional Options
               </h3>
-
               <div className="mb-4">
                 <label
                   htmlFor="tags"
@@ -517,14 +450,13 @@ export default function Upload() {
                   id="tags"
                   name="tags"
                   type="text"
-                  className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 border"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="tag1, tag2, tag3"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                   disabled={isUploading}
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="thumbnailFile"
@@ -558,7 +490,6 @@ export default function Upload() {
                   </div>
                 )}
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="playlist"
@@ -576,7 +507,7 @@ export default function Upload() {
                     name="playlist"
                     value={selectedPlaylist}
                     onChange={(e) => setSelectedPlaylist(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
                     disabled={isUploading}
                   >
                     <option value="">None</option>
@@ -595,7 +526,7 @@ export default function Upload() {
                     </p>
                     <button
                       type="button"
-                      onClick={handleRetryFetchPlaylists}
+                      onClick={fetchUserPlaylists}
                       className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs"
                     >
                       Refresh Playlists
@@ -605,7 +536,6 @@ export default function Upload() {
               </div>
             </div>
           </div>
-
           {isUploading && (
             <div className="mt-4">
               <p className="text-sm font-medium text-gray-700">
@@ -619,8 +549,7 @@ export default function Upload() {
               </div>
             </div>
           )}
-
-          <div>
+          <div className="mt-4">
             <button
               type="submit"
               disabled={isUploading}
@@ -630,8 +559,6 @@ export default function Upload() {
             </button>
           </div>
         </form>
-
-        {/* Debug information */}
         {debugInfo && (
           <div className="mt-6 p-4 bg-gray-100 rounded-md">
             <h3 className="text-lg font-medium">Debug Information:</h3>

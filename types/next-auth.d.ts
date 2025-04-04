@@ -1,9 +1,10 @@
+// types/next-auth.d.ts
 import NextAuth from "next-auth";
 
 declare module "next-auth" {
   interface User {
     id: string;
-    googleConnected?: boolean;
+    googleAccounts?: { id: string; googleEmail: string }[];
   }
 
   interface Session {
@@ -12,7 +13,12 @@ declare module "next-auth" {
       name?: string;
       email?: string;
       image?: string;
-      googleConnected?: boolean;
+      googleAccounts?: { id: string; googleEmail: string }[];
+    };
+    googleConnection?: {
+      accessToken: string;
+      refreshToken: string;
+      email: string;
     };
   }
 }
@@ -20,7 +26,8 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    googleConnected?: boolean;
-    refreshToken?: string;
+    googleAccessToken?: string;
+    googleRefreshToken?: string;
+    googleEmail?: string;
   }
 }

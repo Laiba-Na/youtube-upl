@@ -1,117 +1,197 @@
+// connect-google/page.tsx
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export default function ConnectGoogle() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
+  const [googleAccounts, setGoogleAccounts] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Fetch the list of connected Google accounts from the backend
+  const fetchGoogleAccounts = useCallback(async () => {
+    console.log("Fetching Google accounts...");
+    setError("");
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/google/accounts", {
+        credentials: "include",
+        cache: "no-store"
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to fetch connected Google accounts");
+      }
+
+      const data = await res.json();
+      console.log("Fetched Google accounts:", data.accounts);
+      setGoogleAccounts(data.accounts || []);
+    } catch (err: any) {
+      console.error("Error fetching accounts:", err);
+      setError(err.message || "Failed to fetch accounts");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // If not authenticated, redirect to login
     if (status === "unauthenticated") {
       router.push("/login");
     }
-
-    // Check if we have a session and if Google is connected
     if (status === "authenticated") {
-      console.log("Session data:", session); // Debug log
-
-      if (session?.user?.googleConnected) {
-        console.log("Google connected, redirecting to upload");
-        router.push("/upload");
+      fetchGoogleAccounts();
+      
+      // If we have a completed Google connection, save it
+      if (session?.googleConnection) {
+        saveGoogleConnection();
       }
     }
-  }, [status, session, router]);
+  }, [status, session, router, fetchGoogleAccounts]);
 
-  // If we're coming back from Google auth, we may need to refresh the session
-  useEffect(() => {
-    // Check for Google auth return in URL (presence of code parameter)
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-
-    // If we have a code parameter and we're authenticated but not showing as Google connected
-    if (code && status === "authenticated" && !session?.user?.googleConnected) {
-      console.log("Detected Google auth return, refreshing session");
-
-      // Refresh the session to get updated data
-      const refreshSession = async () => {
-        await update(); // Force session refresh
-
-        // After update, check again
-        if (session?.user?.googleConnected) {
-          router.push("/upload");
-        }
-      };
-
-      refreshSession();
-    }
-  }, [status, session, router, update]);
-
-  const handleConnectGoogle = async () => {
-    setIsConnecting(true);
-    setError("");
-
+  // Save Google connection data to our database
+  const saveGoogleConnection = async () => {
     try {
-      await signIn("google", {
-        callbackUrl: "/connect-google", // Return to this page to allow us to check the session
-        redirect: true,
+      setIsConnecting(true);
+      
+      const res = await fetch("/api/google/connect", {
+        method: "POST",
+        credentials: "include"
       });
-    } catch (err) {
-      console.error("Google sign-in error:", err);
-      setError("Failed to connect with Google. Please try again.");
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to connect Google account");
+      }
+      
+      const data = await res.json();
+      setSuccessMessage("Google account connected successfully!");
+      
+      // Refresh everything
+      await updateSession();
+      await fetchGoogleAccounts();
+    } catch (err: any) {
+      setError(err.message || "Failed to connect Google account");
+    } finally {
       setIsConnecting(false);
     }
   };
 
-  if (status === "loading" || isConnecting) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-lg">Loading...</p>
-      </div>
-    );
+  
+  // In handleConnectGoogle() in connect-google/page.tsx
+const handleConnectGoogle = async () => {
+  setIsConnecting(true);
+  setError("");
+  try {
+    // Add a state parameter to indicate we're connecting a new account
+    await signIn("google", {
+      callbackUrl: "/connect-google",
+      redirect: true,
+    });
+  } catch (err) {
+    console.error("Google sign-in error:", err);
+    setError("Failed to connect with Google. Please try again.");
+    setIsConnecting(false);
   }
+};
+  // Handler to delete a connected Google account
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+      setError("");
+      setSuccessMessage("");
+      
+      const res = await fetch(`/api/google/accounts/${accountId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to delete the account");
+      }
+
+      setSuccessMessage("Google account disconnected successfully!");
+      
+      // Refresh everything
+      await updateSession();
+      await fetchGoogleAccounts();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete account");
+    }
+  };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Connect Your Google Account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Connect your Google account to upload videos to YouTube
-          </p>
-        </div>
-
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+      <div className="max-w-lg w-full bg-white rounded-lg shadow p-6">
+        <h2 className="text-center text-2xl font-bold mb-4">
+          Connect Your Google Accounts
+        </h2>
+        
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
             {error}
           </div>
         )}
-
-        <div className="mt-8 space-y-6">
-          <div>
-            <button
-              onClick={handleConnectGoogle}
-              disabled={isConnecting}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:bg-red-300"
-            >
-              {isConnecting ? "Connecting..." : "Connect with Google"}
-            </button>
+        
+        {successMessage && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
+            {successMessage}
           </div>
+        )}
+        
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4">
+          <p><strong>Current User:</strong> {session?.user?.email || "Not signed in"}</p>
+        </div>
+        
+        <div className="mb-4">
+          <button
+            onClick={handleConnectGoogle}
+            disabled={isConnecting}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+          >
+            {isConnecting ? "Connecting..." : "Connect with Google"}
+          </button>
+        </div>
+        
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold mb-2">Connected Accounts:</h3>
+          
+          {isLoading ? (
+            <p className="text-gray-500">Loading accounts...</p>
+          ) : googleAccounts.length === 0 ? (
+            <p>No Google accounts connected yet.</p>
+          ) : (
+            <ul className="border rounded divide-y">
+              {googleAccounts.map((account) => (
+                <li
+                  key={account.id}
+                  className="flex justify-between items-center p-3"
+                >
+                  <span>{account.googleEmail}</span>
+                  <button
+                    onClick={() => handleDeleteAccount(account.id)}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-1 px-2 rounded"
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-          <div className="text-center">
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Sign out
-            </button>
-          </div>
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </div>
