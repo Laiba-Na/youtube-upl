@@ -18,9 +18,7 @@ export default function Upload() {
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [madeForKids, setMadeForKids] = useState(false);
   const [privacyStatus, setPrivacyStatus] = useState("private");
-  const [playlists, setPlaylists] = useState<
-    Array<{ id: string; title: string }>
-  >([]);
+  const [playlists, setPlaylists] = useState<Array<{ id: string; title: string }>>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState("");
   const [selectedGoogleAccountId, setSelectedGoogleAccountId] = useState("");
 
@@ -39,8 +37,7 @@ export default function Upload() {
     // If authenticated but no connected Google accounts exist, redirect to connect page
     if (
       status === "authenticated" &&
-      (!session?.user?.googleAccounts ||
-        session.user.googleAccounts.length === 0)
+      (!session?.user?.googleAccounts || session.user.googleAccounts.length === 0)
     ) {
       router.push("/connect-google");
     }
@@ -83,9 +80,7 @@ export default function Upload() {
     }
   };
 
-  const handleThumbnailFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setThumbnailFile(file);
@@ -229,8 +224,8 @@ export default function Upload() {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-lg">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-r from-primaryRed via-primaryPurple to-highlightBlue">
+        <p className="text-lg text-white">Loading...</p>
       </div>
     );
   }
@@ -242,39 +237,42 @@ export default function Upload() {
     (!session.user.googleAccounts || session.user.googleAccounts.length === 0)
   ) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p>
-          No connected Google accounts. Please connect your Google account
-          first.
-        </p>
-        <button
-          onClick={() => router.push("/connect-google")}
-          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Connect Google Account
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-primaryRed via-primaryPurple to-highlightBlue px-4">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <p className="text-textBlack">
+            No connected Google accounts. Please connect your Google account first.
+          </p>
+          <button
+            onClick={() => router.push("/connect-google")}
+            className="mt-4 bg-primaryPurple hover:bg-highlightBlue text-white px-4 py-2 rounded font-semibold"
+          >
+            Connect Google Account
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
-        <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-4">
+    <div className="min-h-screen bg-gradient-to-r from-primaryRed via-primaryPurple to-highlightBlue py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+        <h2 className="text-center text-3xl font-extrabold text-textBlack mb-4">
           Upload Video to YouTube
         </h2>
+
         {message && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          <div className="mb-4 border border-highlightBlue bg-highlightBlue/10 text-highlightBlue px-4 py-3 rounded">
             {message}
           </div>
         )}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="mb-4 border border-primaryRed bg-primaryRed/10 text-primaryRed px-4 py-3 rounded">
             {error}
           </div>
         )}
+
         {/* Display connection status and allow account selection */}
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4">
+        <div className="bg-highlightBlue/10 border border-highlightBlue/50 text-textBlack px-4 py-3 rounded mb-4">
           <p>
             <strong>Status:</strong>{" "}
             {status === "authenticated" ? "Signed in" : "Not signed in"}
@@ -284,47 +282,45 @@ export default function Upload() {
               <strong>Email:</strong> {session.user.email}
             </p>
           )}
-          {session?.user?.googleAccounts &&
-            session.user.googleAccounts.length > 0 && (
-              <div className="mt-2">
-                <p className="font-semibold">
-                  Select Google Account for Upload:
-                </p>
-                <select
-                  value={selectedGoogleAccountId}
-                  onChange={(e) => setSelectedGoogleAccountId(e.target.value)}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
-                >
-                  {session.user.googleAccounts.map((acc: any) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.googleEmail}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+          {session?.user?.googleAccounts && session.user.googleAccounts.length > 0 && (
+            <div className="mt-2">
+              <p className="font-semibold">Select Google Account for Upload:</p>
+              <select
+                value={selectedGoogleAccountId}
+                onChange={(e) => setSelectedGoogleAccountId(e.target.value)}
+                className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
+              >
+                {session.user.googleAccounts.map((acc: any) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.googleEmail}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
+
         {/* Upload form */}
         <form onSubmit={handleSubmit} ref={formRef}>
           <div className="space-y-4">
             {/* Required Information */}
-            <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-              <h3 className="text-lg font-medium text-gray-800 mb-3">
+            <div className="bg-highlightBlue/5 p-4 rounded-md border border-highlightBlue/20">
+              <h3 className="text-lg font-medium text-textBlack mb-3">
                 Required Information
               </h3>
               <div className="mb-4">
                 <label
                   htmlFor="title"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
-                  Video Title <span className="text-red-500">*</span>
+                  Video Title <span className="text-primaryRed">*</span>
                 </label>
                 <input
                   id="title"
                   name="title"
                   type="text"
                   required
-                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
                   placeholder="Enter video title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -334,16 +330,16 @@ export default function Upload() {
               <div className="mb-4">
                 <label
                   htmlFor="description"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
-                  Description <span className="text-red-500">*</span>
+                  Description <span className="text-primaryRed">*</span>
                 </label>
                 <textarea
                   id="description"
                   name="description"
                   rows={4}
                   required
-                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
                   placeholder="Enter video description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -353,9 +349,9 @@ export default function Upload() {
               <div className="mb-4">
                 <label
                   htmlFor="videoFile"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
-                  Video File <span className="text-red-500">*</span>
+                  Video File <span className="text-primaryRed">*</span>
                 </label>
                 <input
                   id="videoFile"
@@ -363,12 +359,12 @@ export default function Upload() {
                   type="file"
                   accept="video/*"
                   required
-                  className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  className="mt-1 block w-full text-sm text-textBlack file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-highlightBlue/20 file:text-textBlack hover:file:bg-highlightBlue/30"
                   onChange={handleVideoFileChange}
                   disabled={isUploading}
                 />
                 {videoFile && (
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-textBlack/70">
                     Selected: {videoFile.name} (
                     {(videoFile.size / (1024 * 1024)).toFixed(2)} MB)
                   </p>
@@ -378,9 +374,9 @@ export default function Upload() {
                 <div>
                   <label
                     htmlFor="madeForKids"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-textBlack"
                   >
-                    Audience <span className="text-red-500">*</span>
+                    Audience <span className="text-primaryRed">*</span>
                   </label>
                   <div className="mt-2">
                     <label className="inline-flex items-center mr-4">
@@ -389,10 +385,10 @@ export default function Upload() {
                         name="madeForKids"
                         checked={!madeForKids}
                         onChange={() => setMadeForKids(false)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        className="h-4 w-4 text-highlightBlue focus:ring-highlightBlue border-gray-300"
                         disabled={isUploading}
                       />
-                      <span className="ml-2 text-sm text-gray-700">
+                      <span className="ml-2 text-sm text-textBlack">
                         Not made for kids
                       </span>
                     </label>
@@ -402,10 +398,10 @@ export default function Upload() {
                         name="madeForKids"
                         checked={madeForKids}
                         onChange={() => setMadeForKids(true)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        className="h-4 w-4 text-highlightBlue focus:ring-highlightBlue border-gray-300"
                         disabled={isUploading}
                       />
-                      <span className="ml-2 text-sm text-gray-700">
+                      <span className="ml-2 text-sm text-textBlack">
                         Made for kids
                       </span>
                     </label>
@@ -414,16 +410,16 @@ export default function Upload() {
                 <div>
                   <label
                     htmlFor="privacyStatus"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-textBlack"
                   >
-                    Visibility <span className="text-red-500">*</span>
+                    Visibility <span className="text-primaryRed">*</span>
                   </label>
                   <select
                     id="privacyStatus"
                     name="privacyStatus"
                     value={privacyStatus}
                     onChange={(e) => setPrivacyStatus(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
                     disabled={isUploading}
                     required
                   >
@@ -434,15 +430,16 @@ export default function Upload() {
                 </div>
               </div>
             </div>
+
             {/* Additional Options */}
-            <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-              <h3 className="text-lg font-medium text-gray-800 mb-3">
+            <div className="bg-highlightBlue/5 p-4 rounded-md border border-highlightBlue/20">
+              <h3 className="text-lg font-medium text-textBlack mb-3">
                 Additional Options
               </h3>
               <div className="mb-4">
                 <label
                   htmlFor="tags"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
                   Tags (comma separated)
                 </label>
@@ -450,7 +447,7 @@ export default function Upload() {
                   id="tags"
                   name="tags"
                   type="text"
-                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full rounded-md p-2 border border-gray-300 text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
                   placeholder="tag1, tag2, tag3"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
@@ -460,7 +457,7 @@ export default function Upload() {
               <div className="mb-4">
                 <label
                   htmlFor="thumbnailFile"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
                   Custom Thumbnail (JPEG or PNG, max 2MB)
                 </label>
@@ -469,19 +466,19 @@ export default function Upload() {
                   name="thumbnailFile"
                   type="file"
                   accept="image/jpeg,image/png,image/jpg"
-                  className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  className="mt-1 block w-full text-sm text-textBlack file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-highlightBlue/20 file:text-textBlack hover:file:bg-highlightBlue/30"
                   onChange={handleThumbnailFileChange}
                   disabled={isUploading}
                 />
                 {thumbnailFile && (
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-textBlack/70">
                     Selected: {thumbnailFile.name} (
                     {(thumbnailFile.size / 1024).toFixed(2)} KB)
                   </p>
                 )}
                 {thumbnailPreview && (
                   <div className="mt-2">
-                    <p className="text-sm text-gray-500 mb-1">Preview:</p>
+                    <p className="text-sm text-textBlack/70 mb-1">Preview:</p>
                     <img
                       src={thumbnailPreview}
                       alt="Thumbnail preview"
@@ -493,12 +490,12 @@ export default function Upload() {
               <div className="mb-4">
                 <label
                   htmlFor="playlist"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-textBlack"
                 >
                   Add to Playlist
                 </label>
                 {loadingPlaylists ? (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-textBlack/70 mt-1">
                     Loading playlists...
                   </p>
                 ) : playlists.length > 0 ? (
@@ -507,7 +504,7 @@ export default function Upload() {
                     name="playlist"
                     value={selectedPlaylist}
                     onChange={(e) => setSelectedPlaylist(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md text-white focus:outline-none focus:ring-highlightBlue focus:border-highlightBlue"
                     disabled={isUploading}
                   >
                     <option value="">None</option>
@@ -519,7 +516,7 @@ export default function Upload() {
                   </select>
                 ) : (
                   <div className="flex items-center">
-                    <p className="text-sm text-gray-500 mt-1 mr-2">
+                    <p className="text-sm text-textBlack/70 mt-1 mr-2">
                       {error.includes("Failed to fetch playlists")
                         ? "Error loading playlists"
                         : "No playlists available"}
@@ -527,7 +524,7 @@ export default function Upload() {
                     <button
                       type="button"
                       onClick={fetchUserPlaylists}
-                      className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs"
+                      className="mt-1 bg-primaryPurple hover:bg-highlightBlue text-white py-1 px-3 rounded text-xs"
                     >
                       Refresh Playlists
                     </button>
@@ -536,33 +533,36 @@ export default function Upload() {
               </div>
             </div>
           </div>
+
           {isUploading && (
             <div className="mt-4">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-textBlack">
                 Upload Progress: {uploadProgress}%
               </p>
               <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
                 <div
-                  className="bg-indigo-600 h-2.5 rounded-full"
+                  className="bg-primaryPurple h-2.5 rounded-full"
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
             </div>
           )}
+
           <div className="mt-4">
             <button
               type="submit"
               disabled={isUploading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primaryPurple hover:bg-highlightBlue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-highlightBlue disabled:bg-primaryPurple/50"
             >
               {isUploading ? "Uploading..." : "Upload Video"}
             </button>
           </div>
         </form>
+
         {debugInfo && (
-          <div className="mt-6 p-4 bg-gray-100 rounded-md">
-            <h3 className="text-lg font-medium">Debug Information:</h3>
-            <pre className="mt-2 text-xs overflow-auto p-2 bg-gray-200 rounded">
+          <div className="mt-6 p-4 bg-highlightBlue/5 rounded-md border border-highlightBlue/20">
+            <h3 className="text-lg font-medium text-textBlack">Debug Information:</h3>
+            <pre className="mt-2 text-xs overflow-auto p-2 bg-gray-100 rounded">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
           </div>

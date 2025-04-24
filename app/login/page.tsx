@@ -18,7 +18,7 @@ export default function Login() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/connect-google");
+      router.push("/social-links");
     }
 
     const registered = searchParams.get("registered");
@@ -43,7 +43,7 @@ export default function Login() {
         throw new Error(result.error);
       }
 
-      router.push("/connect-google");
+      router.push("/social-links");
     } catch (error: any) {
       setError(error.message || "Login failed");
     } finally {
