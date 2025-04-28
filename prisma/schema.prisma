@@ -39,18 +39,23 @@ model Project {
   thumbnail   String?  // Path to thumbnail
   user        User     @relation(fields: [userId], references: [id])
   userId      String
-  assets      Asset[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  Asset Asset[]
 }
 
 model Asset {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // image, audio, video, etc.
-  path      String   // Path to stored file
-  project   Project  @relation(fields: [projectId], references: [id])
-  projectId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  url        String
+  key        String   // e.g. Cloudinary public_id
+  filename   String
+  mimeType   String
+  size       Int
+  createdAt  DateTime @default(now())
 }
+
+
+

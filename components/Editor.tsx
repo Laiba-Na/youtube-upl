@@ -1,18 +1,14 @@
 // components/Editor.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useReducer, useRef, useState } from "react";
 import * as fabric from "fabric";
-import { UploadButton } from "@uploadthing/react"; // Import directly
-import { OurFileRouter } from "../lib/uploadthing"; // Import type
-import { ClientUploadedFileData } from "uploadthing/types";
+import { ChangeEvent } from 'react'
 
 
-interface MyClientUploadedFileData<T> {
-  fileUrl: string;
-  fileKey: string;
-  data: T;
-}
+
+
+
 
 interface EditorProps {
   projectId?: string;
@@ -20,12 +16,16 @@ interface EditorProps {
   onSave?: (data: string) => void;
 }
 
+
+
+
 const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(800);
 const [canvasHeight, setCanvasHeight] = useState(600);
+const [canvasState, setCanvasState] = useState<any>(null);
   const [activeObject, setActiveObject] = useState<fabric.Object | null>(null);
   const [filterOptions, setFilterOptions] = useState({
     brightness: 0,
@@ -43,6 +43,13 @@ const [canvasHeight, setCanvasHeight] = useState(600);
     }
     setZoom(newZoom);
   };
+
+  const updateCanvasState = () => {
+    if (canvas) {
+      setCanvasState(canvas.toJSON());
+    }
+  };
+
 
   // Initialize canvas
   useEffect(() => {
@@ -74,12 +81,18 @@ const [canvasHeight, setCanvasHeight] = useState(600);
       fabricCanvas.on("selection:cleared", () => {
         setActiveObject(null);
       });
+      fabricCanvas.on('object:modified', () => {
+        setActiveObject(fabricCanvas.getActiveObject() || null);
+      });
   
       return () => {
         fabricCanvas.dispose();
       };
     }
   }, [canvasWidth, canvasHeight, initialData]); // Add dependencies
+
+  const forceUpdate = useReducer(() => ({}), {})[1];
+
 
   const updateCanvasSize = (newWidth: number, newHeight: number) => {
     if (canvas) {
@@ -136,6 +149,62 @@ const [canvasHeight, setCanvasHeight] = useState(600);
       onSave(JSON.stringify(json));
     }
   };
+
+
+
+  const loadFabricImage = (url: string): Promise<fabric.Image> => {
+    return new Promise((resolve, reject) => {
+      fabric.Image.fromURL(
+        url,
+        ((img: fabric.Image | null) => {
+          img ? resolve(img) : reject(new Error("Failed to load image"));
+        }) as fabric.IImageOptionsCallback,
+        {
+          crossOrigin: 'anonymous',
+          // Other options...
+        } as fabric.IImageOptions
+      );
+    });
+  };
+  
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !projectId) return
+    const file = e.target.files[0]
+    const form = new FormData()
+    form.append('file', file)
+  
+    const res = await fetch(`/api/projects/${projectId}/assets`, {
+      method: 'POST',
+      body: form,
+    })
+    if (!res.ok) {
+      console.error(await res.text())
+      return
+    }
+  
+    const { url } = await res.json()
+    try {
+      const img = await loadFabricImage(url);
+      img.set({
+        left: 100,
+        top: 100,
+        scaleX: 0.5, // Adjust these values as needed
+        scaleY: 0.5
+      });
+      canvas?.add(img);
+      canvas?.setActiveObject(img);
+      canvas?.requestRenderAll();
+      console.log('Canvas Objects:', canvas?.getObjects()); // Check if image is listed
+    } catch (err) {
+      console.error("Error loading image:", err);
+    }
+    
+  }
+  
+
+
+
+
 
   // Add text, shapes, etc. (unchanged)
   const addText = () => {
@@ -238,40 +307,7 @@ const [canvasHeight, setCanvasHeight] = useState(600);
     });
   };
 
- // Handle image upload completion with correct type
-  // Handle image upload completion with correct type
-  const handleImageUploadComplete = (res: ClientUploadedFileData<{ url: string; assetId: string; }>[]) => { 
-    if (canvas && res?.length > 0) { 
-      const imageUrl = res[0].ufsUrl; // Correct property access
-      console.log("Uploaded image URL:", imageUrl); 
-      (fabric.Image.fromURL as any)(imageUrl, (img: fabric.Image) => {
-        console.log("Fabric image loaded:", img);
-        if (!img.width || !img.height) {
-          console.error("Image failed to load properly");
-          return;
-        }
-        const maxWidth = canvas.getWidth() * 0.8;
-        const maxHeight = canvas.getHeight() * 0.8;
-        if (img.width > maxWidth || img.height > maxHeight) {
-          const scaleFactor = Math.min(maxWidth / img.width, maxHeight / img.height);
-          img.scale(scaleFactor);
-          console.log("Scaled image with factor:", scaleFactor);
-        }
-        img.set({
-          left: canvas.getWidth() / 2,
-          top: canvas.getHeight() / 2,
-          originX: "center",
-          originY: "center",
-        });
-        canvas.add(img);
-        canvas.setActiveObject(img);
-        setActiveObject(img);
-        canvas.renderAll();
-        console.log("Image added to canvas");
-      }, { crossOrigin: "anonymous" });
-    }
-  };
-
+ 
   // Apply filter to image
   const applyFilter = (filter: string, value: number) => {
     if (canvas && activeObject && activeObject.type === 'image') {
@@ -387,6 +423,19 @@ const [canvasHeight, setCanvasHeight] = useState(600);
     <div className="flex flex-col h-screen">
       <div className="bg-gray-100 p-4 border-b border-gray-300">
         <div className="flex flex-wrap gap-2">
+        <div className="inline-block">
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handleImageUpload}
+    className="block text-xs text-gray-600
+               file:mr-2 file:py-1 file:px-2
+               file:rounded file:border-0
+               file:text-xs file:font-semibold
+               file:bg-green-50 file:text-green-700
+               hover:file:bg-green-100"
+  />
+</div>
           <button 
             className="bg-blue-500 text-white px-3 py-1 rounded" 
             onClick={addText}
@@ -424,14 +473,7 @@ const [canvasHeight, setCanvasHeight] = useState(600);
             {drawingMode ? 'Exit Drawing' : 'Pen Tool'}
           </button>
           
-          <UploadButton<OurFileRouter, "imageUploader">
-  endpoint="imageUploader"
-  onClientUploadComplete={handleImageUploadComplete} 
-  onUploadError={(error) => console.error("Upload error:", error)}
-  className="ut-button:bg-blue-500 ut-button:text-white ut-button:px-3 ut-button:py-1 ut-button:rounded"
-  input={{ projectId: projectId || "" }}
-  
-/>
+          
 <div className="flex gap-2 items-center mt-4">
   <button
     onClick={() => handleZoom(zoom - 0.1)}
@@ -614,6 +656,11 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={canvas.freeDrawingBrush!.width} 
                     onChange={(e) => {
                       canvas.freeDrawingBrush!.width = parseInt(e.target.value);
+                      activeObject?.set('range', parseFloat(e.target.value));
+                      canvas?.renderAll();
+                      forceUpdate();
+                      updateCanvasState();
+                      
                     }}
                     className="w-full"
                   />
@@ -625,6 +672,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={canvas.freeDrawingBrush!.color as string} 
                     onChange={(e) => {
                       canvas.freeDrawingBrush!.color = e.target.value;
+                      activeObject?.set('color', parseFloat(e.target.value));
+                      canvas?.renderAll();
+                      forceUpdate();
+                      updateCanvasState();
                     }}
                     className="w-full"
                   />
@@ -647,8 +698,14 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={filterOptions.brightness}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
+                      activeObject?.set('range', parseFloat(e.target.value));
+                      canvas?.renderAll();
+                      forceUpdate();
+                      updateCanvasState();
                       setFilterOptions({...filterOptions, brightness: val});
                       applyFilter('brightness', val);
+                      
+                      
                     }}
                     className="w-full"
                   />
@@ -663,6 +720,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={filterOptions.contrast}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
+                      activeObject?.set('range', parseFloat(e.target.value));
+                      canvas?.renderAll();
+                      forceUpdate();
+                      updateCanvasState();
                       setFilterOptions({...filterOptions, contrast: val});
                       applyFilter('contrast', val);
                     }}
@@ -679,6 +740,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={filterOptions.saturation}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
+                      activeObject?.set('range', parseFloat(e.target.value));
+                      canvas?.renderAll();
+                      forceUpdate();
+                      updateCanvasState();
                       setFilterOptions({...filterOptions, saturation: val});
                       applyFilter('saturation', val);
                     }}
@@ -699,6 +764,8 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={(activeObject as fabric.Textbox).fontFamily}
                     onChange={(e) => {
                       (activeObject as fabric.Textbox).set('fontFamily', e.target.value);
+                      forceUpdate();
+                      updateCanvasState();
                       canvas?.renderAll();
                     }}
                     className="w-full p-1 border rounded"
@@ -717,7 +784,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={(activeObject as fabric.Textbox).fontSize}
                     onChange={(e) => {
                       (activeObject as fabric.Textbox).set('fontSize', parseInt(e.target.value));
+                      (activeObject as fabric.Textbox).set('fontSize', parseInt(e.target.value));
                       canvas?.renderAll();
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                     }}
                     className="w-full p-1 border rounded"
                   />
@@ -729,6 +799,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={(activeObject as fabric.Textbox).fill as string}
                     onChange={(e) => {
                       (activeObject as fabric.Textbox).set('fill', e.target.value);
+                      (activeObject as fabric.Textbox).set('fill', e.target.value);
+ 
+  updateCanvasState(); // Add these
+  forceUpdate();
                       canvas?.renderAll();
                     }}
                     className="w-full"
@@ -741,6 +815,9 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={(activeObject as fabric.Textbox).backgroundColor as string || '#ffffff'}
                     onChange={(e) => {
                       (activeObject as fabric.Textbox).set('backgroundColor', e.target.value);
+                      (activeObject as fabric.Textbox).set('color', e.target.value);
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                       canvas?.renderAll();
                     }}
                     className="w-full"
@@ -817,7 +894,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={activeObject.fill as string}
                     onChange={(e) => {
                       activeObject.set('fill', e.target.value);
+                      
                       canvas?.renderAll();
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                     }}
                     className="w-full"
                   />
@@ -829,6 +909,8 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={activeObject.stroke as string || '#000000'}
                     onChange={(e) => {
                       activeObject.set('stroke', e.target.value);
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                       canvas?.renderAll();
                     }}
                     className="w-full"
@@ -841,6 +923,10 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={activeObject.strokeWidth || 0}
                     onChange={(e) => {
                       activeObject.set('strokeWidth', parseInt(e.target.value));
+                      
+                      canvas?.renderAll();
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                       canvas?.renderAll();
                     }}
                     className="w-full p-1 border rounded"
@@ -856,7 +942,11 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={activeObject.opacity || 1}
                     onChange={(e) => {
                       activeObject.set('opacity', parseFloat(e.target.value));
+                     
                       canvas?.renderAll();
+                      updateCanvasState(); // Add this
+                      forceUpdate(); // Add this
+                      
                     }}
                     className="w-full"
                   />
@@ -876,6 +966,8 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     value={activeObject.stroke as string || '#000000'}
                     onChange={(e) => {
                       activeObject.set('stroke', e.target.value);
+                      updateCanvasState(); // Add these
+                      forceUpdate();
                       canvas?.renderAll();
                     }}
                     className="w-full"
@@ -889,6 +981,9 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     onChange={(e) => {
                       activeObject.set('strokeWidth', parseInt(e.target.value));
                       canvas?.renderAll();
+                      updateCanvasState(); // Add these
+                      forceUpdate();
+                      
                     }}
                     className="w-full p-1 border rounded"
                   />
@@ -912,28 +1007,29 @@ const [canvasHeight, setCanvasHeight] = useState(600);
                     onChange={(e) => {
                       activeObject.set('opacity', parseFloat(e.target.value));
                       canvas?.renderAll();
+  updateCanvasState(); // Add this
+  forceUpdate(); // Add this
+                     
                     }}
                     className="w-full"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                 <button
-  className="px-2 py-1 bg-red-100 text-red-700 rounded text-sm"
   onClick={() => {
-    if (activeObject) {
-      activeObject.bringForward();
-      canvas?.renderAll();
+    if (activeObject && canvas) {
+      canvas.bringObjectForward(activeObject);
+      canvas.renderAll();
     }
   }}
 >
   Bring Forward
 </button>
 <button
-  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
   onClick={() => {
-    if (activeObject) {
-      activeObject.sendBackwards();
-      canvas?.renderAll();
+    if (activeObject && canvas) {
+      canvas.sendObjectBackwards(activeObject);
+      canvas.renderAll();
     }
   }}
 >

@@ -11,8 +11,7 @@ interface EditorTabsProps {
 
 const EditorTabs: React.FC<EditorTabsProps> = ({ projectId, initialData, onSave }) => {
   const [activeTab, setActiveTab] = useState('design');
-  const [layers, setLayers] = useState<any[]>([]);
-  const [currentTime, setCurrentTime] = useState(0);
+
  
 
   

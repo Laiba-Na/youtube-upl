@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Get a specific project
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,8 +18,8 @@ export async function GET(
     }
     
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
-      include: { assets: true }
+      where: { id: params.projectId },
+      include: { Asset: true }
     });
     
     if (!project) {
@@ -44,7 +44,7 @@ export async function GET(
 // Update a project
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -56,7 +56,7 @@ export async function PUT(
     const { name, description, content, thumbnail } = await req.json();
     
     const project = await prisma.project.findUnique({
-      where: { id: params.id }
+      where: { id: params.projectId }
     });
     
     if (!project) {
@@ -72,7 +72,7 @@ export async function PUT(
     }
     
     const updatedProject = await prisma.project.update({
-      where: { id: params.id },
+      where: { id: params.projectId },
       data: {
         name: name !== undefined ? name : project.name,
         description: description !== undefined ? description : project.description,
@@ -91,7 +91,7 @@ export async function PUT(
 // Delete a project
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -101,7 +101,7 @@ export async function DELETE(
     }
     
     const project = await prisma.project.findUnique({
-      where: { id: params.id }
+      where: { id: params.projectId }
     });
     
     if (!project) {
@@ -118,12 +118,12 @@ export async function DELETE(
     
     // Delete associated assets first
     await prisma.asset.deleteMany({
-      where: { projectId: params.id }
+      where: { projectId: params.projectId }
     });
     
     // Delete the project
     await prisma.project.delete({
-      where: { id: params.id }
+      where: { id: params.projectId }
     });
     
     return NextResponse.json({ success: true });
