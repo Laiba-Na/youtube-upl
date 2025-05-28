@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, description, content } = await req.json();
+    const { name, description, content: contentString } = await req.json();
     
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -28,11 +28,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
+    // Parse content string to extract thumbnail
+    const contentObj = JSON.parse(contentString);
+    const thumbnail = contentObj.thumbnail || null;
+    delete contentObj.thumbnail; // Remove thumbnail from content to store it separately
+    
     const project = await prisma.project.create({
       data: {
         name,
         description,
-        content: content || {},
+        content: contentObj,
+        thumbnail,
         userId: user.id,
       }
     });

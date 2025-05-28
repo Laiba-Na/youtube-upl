@@ -53,11 +53,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-500 via-primaryPurple to-primaryRed p-4">
-      {/* 
-        If you'd like to replicate the fluid/abstract shapes in the background, 
-        you can place absolutely positioned divs or svgs here. For simplicity,
-        this example only uses a gradient background.
-      */}
+      
 
       <div className="relative w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
         {/* Header */}

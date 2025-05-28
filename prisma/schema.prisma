@@ -18,6 +18,7 @@ model User {
 
   // Remove fields: googleConnected, googleRefreshToken
   googleAccounts GoogleAccount[] // one-to-many relationship
+  posts          Post[]          // Added relation for posts
 }
 
 model GoogleAccount {
@@ -58,4 +59,14 @@ model Asset {
 }
 
 
-
+model Post {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  title       String
+  description String?
+  hashtags    String?  // e.g., "tag1,tag2,tag3"
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

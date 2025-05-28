@@ -10,11 +10,11 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { name: 'DASHBOARD', path: '/Dashboard' },
-  { name: 'HOME', path: '/' },
+  { name: 'POST CATALOG', path: '/posts' },
   { name: 'POST EDITING', path: '/Editordashboard' },
   { name: 'ANALYTICS', path: '/analytics' },
   { name: 'CALENDAR', path: '/calendar' },
-  { name: 'SCHEDULING', path: '/scheduling' },
+  { name: 'POST MEDIA', path: '/PostMedia' },
   { name: 'TEAM SETUP', path: '/team-setup' },
   { name: 'SETTINGS', path: '/settings' },
 ];

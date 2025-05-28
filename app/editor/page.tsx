@@ -6,7 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import EditorTabs from '@/components/EditorTabs';
 
+
+
 export default function EditorPage() {
+
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -55,21 +59,21 @@ export default function EditorPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: JSON.parse(content),
+            content, // Send content as a string
           }),
         });
-        
+  
         if (!response.ok) {
-          throw new Error('Failed to update project');
+          const errorData = await response.json();
+          throw new Error(`Failed to update project: ${errorData.error || 'Unknown error'}`);
         }
-        
+  
         alert('Project saved successfully!');
       } else {
         // Create new project
         const name = prompt('Enter a name for your project:');
-        
         if (!name) return;
-        
+  
         const response = await fetch('/api/projects', {
           method: 'POST',
           headers: {
@@ -77,23 +81,26 @@ export default function EditorPage() {
           },
           body: JSON.stringify({
             name,
-            content: JSON.parse(content),
+            content, // Send content as a string
           }),
         });
-        
+  
         if (!response.ok) {
-          throw new Error('Failed to create project');
+          const errorData = await response.json();
+          throw new Error(`Failed to create project: ${errorData.error || 'Unknown error'}`);
         }
-        
+  
         const newProject = await response.json();
         router.push(`/editor?id=${newProject.id}`);
         alert('Project created successfully!');
       }
     } catch (error) {
       console.error('Error saving project:', error);
-      alert('Failed to save project');
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      alert(`Failed to save project: ${errorMessage}`);
     }
   };
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;

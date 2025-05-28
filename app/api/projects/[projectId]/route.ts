@@ -53,7 +53,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, description, content, thumbnail } = await req.json();
+    const { name, description, content: contentString } = await req.json();
+    const contentObj = JSON.parse(contentString);
+  const thumbnail = contentObj.thumbnail || null;
+  delete contentObj.thumbnail;
     
     const project = await prisma.project.findUnique({
       where: { id: params.projectId }
@@ -76,7 +79,7 @@ export async function PUT(
       data: {
         name: name !== undefined ? name : project.name,
         description: description !== undefined ? description : project.description,
-        content: content !== undefined ? content : project.content,
+        content: contentObj !== undefined ? contentObj : project.content,
         thumbnail: thumbnail !== undefined ? thumbnail : project.thumbnail,
       }
     });
