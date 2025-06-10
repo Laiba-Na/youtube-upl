@@ -1,24 +1,28 @@
 // types/next-auth.d.ts
-import NextAuth from "next-auth";
+import "next-auth";
+import { GoogleAccount, FacebookAccount } from "@prisma/client";
 
 declare module "next-auth" {
   interface User {
     id: string;
-    googleAccounts?: { id: string; googleEmail: string }[];
+    name: string;
+    email: string;
+    googleAccounts?: Pick<GoogleAccount, 'id' | 'googleEmail' | 'providerAccountId'>[];
+    facebookAccounts?: Pick<FacebookAccount, 'id' | 'providerAccountId' | 'pageId' | 'pageName'>[];
   }
 
   interface Session {
-    user: {
-      id: string;
-      name?: string;
-      email?: string;
-      image?: string;
-      googleAccounts?: { id: string; googleEmail: string }[];
-    };
+    user: User;
     googleConnection?: {
       accessToken: string;
       refreshToken: string;
       email: string;
+    };
+    facebookConnection?: {
+      accessToken: string;
+      refreshToken: string | null;
+      email: string;
+      providerAccountId: string;
     };
   }
 }
@@ -29,5 +33,9 @@ declare module "next-auth/jwt" {
     googleAccessToken?: string;
     googleRefreshToken?: string;
     googleEmail?: string;
+    facebookAccessToken?: string;
+    facebookRefreshToken?: string | null;
+    facebookEmail?: string;
+    facebookProviderId?: string;
   }
 }

@@ -12,7 +12,7 @@ const navItems: NavItem[] = [
   { name: 'DASHBOARD', path: '/Dashboard' },
   { name: 'POST CATALOG', path: '/posts' },
   { name: 'POST EDITING', path: '/Editordashboard' },
-  { name: 'ANALYTICS', path: '/analytics' },
+  { name: 'ANALYTICS', path: '/Analytics' },
   { name: 'CALENDAR', path: '/calendar' },
   { name: 'POST MEDIA', path: '/PostMedia' },
   { name: 'TEAM SETUP', path: '/team-setup' },
