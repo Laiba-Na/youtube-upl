@@ -1,3 +1,5 @@
+//api/youtube/playlists/route.ts
+
 import { NextResponse } from 'next/server';
 import { google, youtube_v3 } from 'googleapis';
 import { getServerSession } from 'next-auth/next';

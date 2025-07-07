@@ -1,64 +1,105 @@
 "use client";
 
-import Link from "next/link";
+import { JSX, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FaYoutube, FaFacebook, FaTumblr, FaPinterest, FaTwitter } from "react-icons/fa";
 
+interface SocialMedia {
+  name: string;
+  url: string;
+  icon: JSX.Element;
+}
+
 export default function SocialLinks() {
+  const router = useRouter();
+  const [selectedSocials, setSelectedSocials] = useState<string[]>([]);
+
+  const socialMedia: SocialMedia[] = [
+    {
+      name: "YouTube",
+      url: "https://accounts.google.com/signin",
+      icon: <FaYoutube className="text-red-600 text-4xl" />,
+    },
+    {
+      name: "Facebook",
+      url: "https://www.facebook.com/login",
+      icon: <FaFacebook className="text-blue-600 text-4xl" />,
+    },
+    {
+      name: "Tumblr",
+      url: "https://www.tumblr.com/login",
+      icon: <FaTumblr className="text-blue-800 text-4xl" />,
+    },
+    {
+      name: "Pinterest",
+      url: "https://www.pinterest.com/login",
+      icon: <FaPinterest className="text-red-700 text-4xl" />,
+    },
+    {
+      name: "X (Twitter)",
+      url: "https://twitter.com/login",
+      icon: <FaTwitter className="text-blue-400 text-4xl" />,
+    },
+  ];
+
+  const handleCheckboxChange = (socialName: string) => {
+    setSelectedSocials((prev) =>
+      prev.includes(socialName)
+        ? prev.filter((name) => name !== socialName)
+        : [...prev, socialName]
+    );
+  };
+
+  const handleOpenTabs = () => {
+    selectedSocials.forEach((socialName) => {
+      const social = socialMedia.find((s) => s.name === socialName);
+      if (social) {
+        if (social.name === "YouTube") {
+          window.open("/connect-google", "_blank", "noopener,noreferrer");
+        } else {
+          window.open(social.url, "_blank", "noopener,noreferrer");
+        }
+      }
+    });
+    router.push("/Dashboard");
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
-        {/* First Column - YouTube */}
-        <div className="flex flex-col items-center">
-          <h2 className="text-xl font-bold mb-4 text-textBlack">Upload videos on</h2>
-          <Link
-            href="/connect-google"
-            className="flex flex-col items-center justify-center p-[6vw] bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full"
-          >
-            <FaYoutube className="text-red-600 text-6xl mb-4" />
-            <span className="text-lg font-semibold text-textBlack">YouTube</span>
-          </Link>
+      <div className="w-full max-w-6xl">
+        <h2 className="text-2xl font-bold mb-6 text-center text-textBlack">
+          Select Social Media Platforms
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {socialMedia.map((social) => (
+            <div key={social.name} className="flex flex-col items-center">
+              <label className="flex flex-col items-center justify-center p-4 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full cursor-pointer">
+                <div className="flex items-center space-x-4">
+                  {social.icon}
+                  <span className="text-lg font-semibold text-textBlack">{social.name}</span>
+                  <input
+                    type="checkbox"
+                    checked={selectedSocials.includes(social.name)}
+                    onChange={() => handleCheckboxChange(social.name)}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500"
+                  />
+                </div>
+              </label>
+            </div>
+          ))}
         </div>
-
-        {/* Second Column - Facebook, Tumblr, Pinterest */}
-        <div className="flex flex-col items-center">
-          <h2 className="text-xl font-bold mb-4 text-textBlack">Make a post to</h2>
-          <div className="space-y-4 w-full">
-            <Link
-              href="/facebook"
-              className="flex flex-col items-center justify-center p-4 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full"
-            >
-              <FaFacebook className="text-blue-600 text-4xl mb-2" />
-              <span className="text-lg font-semibold text-textBlack">Facebook</span>
-            </Link>
-
-            <Link
-              href="/tumblr"
-              className="flex flex-col items-center justify-center p-4 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full"
-            >
-              <FaTumblr className="text-blue-800 text-4xl mb-2" />
-              <span className="text-lg font-semibold text-textBlack">Tumblr</span>
-            </Link>
-
-            <Link
-              href="/pinterest"
-              className="flex flex-col items-center justify-center p-4 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full"
-            >
-              <FaPinterest className="text-red-700 text-4xl mb-2" />
-              <span className="text-lg font-semibold text-textBlack">Pinterest</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Third Column - X (Twitter) */}
-        <div className="flex flex-col items-center">
-          <h2 className="text-xl font-bold mb-4 text-textBlack">Share your thoughts on</h2>
-          <Link
-            href="/twitter"
-            className="flex flex-col items-center justify-center p-[6vw] bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full"
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={handleOpenTabs}
+            disabled={selectedSocials.length === 0}
+            className={`px-6 py-3 rounded-lg text-white font-semibold transition ${
+              selectedSocials.length === 0
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            <FaTwitter className="text-blue-400 text-6xl mb-4" />
-            <span className="text-lg font-semibold text-textBlack">X (Twitter)</span>
-          </Link>
+            Connect to Selected Platforms
+          </button>
         </div>
       </div>
     </div>

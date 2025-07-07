@@ -10,7 +10,7 @@ export default function Analytics() {
       <div className="grid grid-cols-3 gap-8 w-full max-w-6xl">
         {/* YouTube */}
         <Link
-          href="/connect-google"
+          href="/youtube/Analytics"
           className="flex flex-col items-center justify-center p-8 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full h-64"
         >
           <FaYoutube className="text-red-600 text-6xl mb-4" />
