@@ -11,6 +11,9 @@ import { getServerSession } from "next-auth/next";
 
 const prisma = new PrismaClient();
 
+// Base URL for redirects (use environment variable in production)
+const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -18,8 +21,39 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        userId: { label: "User ID", type: "hidden" }, // For 2FA flow
+        twoFactorToken: { label: "2FA Token", type: "text" }, // Add 2FA token field
       },
       async authorize(credentials) {
+        // If userId and twoFactorToken are provided (post-2FA verification)
+        if (credentials?.userId && credentials?.twoFactorToken) {
+          const user = await prisma.user.findUnique({
+            where: { id: credentials.userId },
+          });
+          if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+            throw new Error("2FA not configured for this user");
+          }
+
+          // Verify 2FA token
+          const speakeasy = (await import("speakeasy")).default;
+          const isValid = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: "base32",
+            token: credentials.twoFactorToken,
+            window: 1,
+          });
+
+          if (!isValid) {
+            throw new Error("Invalid 2FA code");
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          };
+        }
+        // Existing password-based login logic
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing credentials");
         }
@@ -36,6 +70,11 @@ export const authOptions: NextAuthOptions = {
         if (!isPasswordValid) {
           throw new Error("Invalid password");
         }
+
+        if (user.twoFactorEnabled) {
+          throw new Error("2FA required");
+        }
+        
         return {
           id: user.id,
           name: user.name,
@@ -67,6 +106,16 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
+      
+        // Check if user has 2FA enabled
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+        });
+  
+        if (dbUser?.twoFactorEnabled && account?.provider === "credentials") {
+          // Redirect to 2FA verification page with userId
+          return `${BASE_URL}/login/2fa?userId=${user.id}`;
+        }
       // Handle Google sign-in
       if (account?.provider === "google" && user.email) {
         try {
@@ -421,6 +470,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
+    verifyRequest: "/login/2fa",
   },
   session: {
     strategy: "jwt",

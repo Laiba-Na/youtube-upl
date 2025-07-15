@@ -6,16 +6,60 @@ import Link from "next/link";
 
 export default function Register() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+    general: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Validation regex (same as server-side for consistency)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = { name: "", email: "", password: "", general: "" };
+
+    // Name validation
+    if (!formData.name || formData.name.length < 2 || !/^[a-zA-Z\s]+$/.test(formData.name)) {
+      newErrors.name = "Name must be at least 2 characters long and contain only letters and spaces";
+      isValid = false;
+    }
+
+    // Email validation
+    if (!formData.email || !emailRegex.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+      isValid = false;
+    }
+
+    // Password validation
+    if (!formData.password || !passwordRegex.test(formData.password)) {
+      newErrors.password =
+        "Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
+    setErrors({ name: "", email: "", password: "", general: "" });
+
+    // Perform client-side validation
+    if (!validateForm()) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -23,26 +67,36 @@ export default function Register() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || "Registration failed");
+        const errorData = await response.json();
+        setErrors((prev) => ({ ...prev, general: errorData.error || "Registration failed" }));
+        setIsLoading(false);
+        return;
       }
 
       router.push("/login?registered=true");
     } catch (error: any) {
-      setError(error.message || "Something went wrong");
+      setErrors((prev) => ({ ...prev, general: error.message || "Something went wrong" }));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Clear specific field error when user starts typing
+    setErrors((prev) => ({ ...prev, [name]: "", general: "" }));
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* Left side (Welcome Back) */}
-      <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center bg-gradient-to-br from-primaryPurple  to-primaryRed p-8 text-white">
+      <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center bg-gradient-to-br from-primaryPurple to-primaryRed p-8 text-white">
         <h2 className="text-3xl font-bold mb-4">Welcome Back</h2>
         <p className="max-w-sm text-center">
           To keep connected with us please login with your personal info
@@ -59,7 +113,6 @@ export default function Register() {
 
       {/* Right side (Create Account) */}
       <div className="flex flex-col justify-center items-center w-full md:w-1/2 bg-white p-6 sm:p-12">
-        {/* Small color dots (optional) */}
         <div className="flex justify-center items-center space-x-2 mb-4">
           <span className="w-3 h-3 rounded-full bg-primaryPurple"></span>
           <span className="w-3 h-3 rounded-full bg-textBlack"></span>
@@ -73,10 +126,10 @@ export default function Register() {
           or use email for registration
         </p>
 
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-primaryRed px-4 py-3 mb-4 rounded">
-            {error}
+        {/* General error message */}
+        {errors.general && (
+          <div className="bg-red-100 border border-red-400 text-primaryRed px-4 py-3 mb-4 rounded w-full max-w-sm">
+            {errors.general}
           </div>
         )}
 
@@ -85,7 +138,7 @@ export default function Register() {
           <div>
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-textBlack mb-1 "
+              className="block text-sm font-medium text-textBlack mb-1"
             >
               Full Name
             </label>
@@ -94,11 +147,16 @@ export default function Register() {
               name="name"
               type="text"
               required
-              className="block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack "
+              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
+                errors.name ? "border border-red-400" : ""
+              }`}
               placeholder="Your Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formData.name}
+              onChange={handleInputChange}
             />
+            {errors.name && (
+              <p className="text-primaryRed text-sm mt-1">{errors.name}</p>
+            )}
           </div>
 
           <div>
@@ -114,11 +172,16 @@ export default function Register() {
               type="email"
               autoComplete="email"
               required
-              className="block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack "
+              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
+                errors.email ? "border border-red-400" : ""
+              }`}
               placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleInputChange}
             />
+            {errors.email && (
+              <p className="text-primaryRed text-sm mt-1">{errors.email}</p>
+            )}
           </div>
 
           <div>
@@ -134,11 +197,16 @@ export default function Register() {
               type="password"
               autoComplete="new-password"
               required
-              className="block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack "
+              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
+                errors.password ? "border border-red-400" : ""
+              }`}
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleInputChange}
             />
+            {errors.password && (
+              <p className="text-primaryRed text-sm mt-1">{errors.password}</p>
+            )}
           </div>
 
           <button
@@ -151,13 +219,13 @@ export default function Register() {
         </form>
 
         {/* Already have account */}
-        <div className="text-sm text-center mt-4 text-primaryPurple">
-        Already have an account? &nbsp;
+        <div className="text-sm text-center mt-4 text ਆਓ-primaryPurple">
+          Already have an account?{" "}
           <Link
             href="/login"
             className="font-medium text-primaryPurple hover:text-primaryRed"
           >
-             Sign in
+            Sign in
           </Link>
         </div>
       </div>

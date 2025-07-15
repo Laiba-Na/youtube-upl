@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { NextRequest } from 'next/server';
+import { withAuth } from "next-auth/middleware";
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -41,6 +42,14 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+export default withAuth({
+  pages: {
+    signIn: "/login",
+  },
+});
+
 export const config = {
-  matcher: ['/', '/connect-google', '/upload', '/login', '/register'],
+  matcher: ['/', '/connect-google', '/upload', '/login', '/register',"/dashboard", "/settings/:path*"],
 };
+
+

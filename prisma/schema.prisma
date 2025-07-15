@@ -20,6 +20,8 @@ model User {
   googleAccounts GoogleAccount[] // one-to-many relationship
     facebookAccounts FacebookAccount[] // Added relation for Facebook accounts
   posts          Post[]          // Added relation for posts
+  twoFactorSecret String? // Store the 2FA secret
+  twoFactorEnabled Boolean @default(false) // Whether 2FA is enabled
 }
 
 model GoogleAccount {
