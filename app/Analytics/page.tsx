@@ -1,9 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { FaYoutube, FaFacebook, FaTumblr, FaPinterest, FaTwitter } from "react-icons/fa";
+import { useState } from "react";
+import {
+  FaYoutube,
+  FaFacebook,
+  FaTumblr,
+  FaPinterest,
+  FaTwitter,
+} from "react-icons/fa";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 
-export default function Analytics() {
+export default function Page() {
+  const [showTwitterDashboard, setShowTwitterDashboard] = useState(false);
+
+  if (showTwitterDashboard) {
+    return <AnalyticsDashboard />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold mb-8 text-textBlack">Analytics</h1>
@@ -41,17 +55,21 @@ export default function Analytics() {
           className="flex flex-col items-center justify-center p-8 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full h-64"
         >
           <FaPinterest className="text-red-700 text-6xl mb-4" />
-          <span className="text-lg font-semibold text-textBlack">Pinterest</span>
+          <span className="text-lg font-semibold text-textBlack">
+            Pinterest
+          </span>
         </Link>
 
         {/* X (Twitter) */}
-        <Link
-          href="/twitter"
-          className="flex flex-col items-center justify-center p-8 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full h-64"
+        <div
+          onClick={() => setShowTwitterDashboard(true)}
+          className="flex flex-col items-center justify-center p-8 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full h-64 cursor-pointer"
         >
           <FaTwitter className="text-blue-400 text-6xl mb-4" />
-          <span className="text-lg font-semibold text-textBlack">X (Twitter)</span>
-        </Link>
+          <span className="text-lg font-semibold text-textBlack">
+            X (Twitter)
+          </span>
+        </div>
 
         {/* Empty cells */}
         <div className="w-full h-64"></div>
