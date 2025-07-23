@@ -1,11 +1,11 @@
 // api/auth/[...nextauth]/route.ts
-import NextAuth, { User } from "next-auth";
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import { GoogleAccount, FacebookAccount, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth/next";
 
@@ -24,63 +24,90 @@ export const authOptions: NextAuthOptions = {
         userId: { label: "User ID", type: "hidden" }, // For 2FA flow
         twoFactorToken: { label: "2FA Token", type: "text" }, // Add 2FA token field
       },
-      async authorize(credentials) {
-        // If userId and twoFactorToken are provided (post-2FA verification)
-        if (credentials?.userId && credentials?.twoFactorToken) {
-          const user = await prisma.user.findUnique({
-            where: { id: credentials.userId },
-          });
-          if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
-            throw new Error("2FA not configured for this user");
-          }
+      async authorize(credentials, req) {
+        // Handle 2FA verification
+  if (credentials?.userId && credentials?.twoFactorToken) {
+    console.log("Processing 2FA verification for user ID:", credentials.userId);
+    
+    const user = await prisma.user.findUnique({
+      where: { id: credentials.userId },
+      include: { googleAccounts: true, facebookAccounts: true },
+    });
+    
+    if (!user) {
+      console.error("User not found for 2FA verification");
+      throw new Error("User not found");
+    }
 
-          // Verify 2FA token
-          const speakeasy = (await import("speakeasy")).default;
-          const isValid = speakeasy.totp.verify({
-            secret: user.twoFactorSecret,
-            encoding: "base32",
-            token: credentials.twoFactorToken,
-            window: 1,
-          });
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      console.error("2FA not configured for this user");
+      throw new Error("2FA not configured for this user");
+    }
 
-          if (!isValid) {
-            throw new Error("Invalid 2FA code");
-          }
+    // Verify 2FA token
+    console.log("Verifying 2FA token...");
+    const speakeasy = (await import("speakeasy")).default;
+    const isValid = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: "base32",
+      token: credentials.twoFactorToken,
+      window: 2, // Increased window to handle potential time sync issues
+    });
 
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          };
-        }
-        // Existing password-based login logic
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing credentials");
-        }
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
-        if (!user || !user.password) {
-          throw new Error("User not found");
-        }
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
+    console.log("2FA token verification result:", isValid);
 
-        if (user.twoFactorEnabled) {
-          throw new Error("2FA required");
-        }
-        
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-        };
-      },
+    if (!isValid) {
+      throw new Error("Invalid 2FA code");
+    }
+
+    // 2FA verification successful
+    console.log("2FA verification successful for user:", user.email);
+    return {
+      id: user.id,
+      name: user.name || "",
+      email: user.email,
+      twoFactorEnabled: user.twoFactorEnabled,
+      googleAccounts: user.googleAccounts,
+      facebookAccounts: user.facebookAccounts,
+    };
+  }
+  
+  // Existing password-based login logic
+  if (!credentials?.email || !credentials?.password) {
+    throw new Error("Missing credentials");
+  }
+  
+  const user = await prisma.user.findUnique({
+    where: { email: credentials.email },
+  });
+  
+  if (!user || !user.password) {
+    throw new Error("User not found");
+  }
+  
+  const isPasswordValid = await bcrypt.compare(
+    credentials.password,
+    user.password
+  );
+  
+  if (!isPasswordValid) {
+    throw new Error("Invalid password");
+  }
+
+ // Check if 2FA is enabled
+ if (user.twoFactorEnabled) {
+  console.log("2FA required for user:", user.email);
+  throw new Error("2FA_REQUIRED");
+}
+
+  
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    twoFactorEnabled: false,
+  };
+}
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -105,17 +132,23 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, credentials }) {
       
-        // Check if user has 2FA enabled
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-        });
+    // For 2FA verification, we skip the redirect
+  if (credentials?.userId && credentials?.twoFactorToken) {
+    return true; // Allow the signIn to complete normally
+  }
   
-        if (dbUser?.twoFactorEnabled && account?.provider === "credentials") {
-          // Redirect to 2FA verification page with userId
-          return `${BASE_URL}/login/2fa?userId=${user.id}`;
-        }
+  // For regular credential login that needs 2FA
+  if (account?.provider === "credentials" && !credentials?.twoFactorToken) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (dbUser?.twoFactorEnabled) {
+      throw new Error("2FA_REQUIRED");
+    }
+  }
       // Handle Google sign-in
       if (account?.provider === "google" && user.email) {
         try {
@@ -180,7 +213,7 @@ export const authOptions: NextAuthOptions = {
           } else {
             // No authenticated user, handle regular sign-in process
             // Check if this email already exists as a user
-            let existingUser: (User & { googleAccounts?: GoogleAccount[] }) | null = await prisma.user.findUnique({
+            let existingUser = await prisma.user.findUnique({
               where: { email: user.email },
               include: { googleAccounts: true }
             });
@@ -197,6 +230,9 @@ export const authOptions: NextAuthOptions = {
                     // Create a random password placeholder
                     password: await bcrypt.hash(crypto.randomUUID(), 12),
                   },
+                  include: {
+                    googleAccounts: true
+                  }
                 });
               } else {
                 console.log(`User already exists: ${existingUser.id}`);
@@ -316,7 +352,7 @@ export const authOptions: NextAuthOptions = {
           } else {
             // No authenticated user, handle regular sign-in process
             // Check if this email already exists as a user
-            let existingUser: (User & { facebookAccounts?: FacebookAccount[] }) | null = await prisma.user.findUnique({
+            let existingUser = await prisma.user.findUnique({
               where: { email: user.email },
               include: { facebookAccounts: true }
             });
@@ -333,6 +369,9 @@ export const authOptions: NextAuthOptions = {
                     // Create a random password placeholder
                     password: await bcrypt.hash(crypto.randomUUID(), 12),
                   },
+                  include: {
+                    facebookAccounts: true
+                  }
                 });
               } else {
                 console.log(`User already exists: ${existingUser.id}`);

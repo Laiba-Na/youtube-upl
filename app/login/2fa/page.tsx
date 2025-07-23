@@ -25,20 +25,26 @@ export default function TwoFactorAuth() {
     }
 
     try {
+      // Make sure we're explicitly setting the 2FA credentials
       const signInResponse = await signIn("credentials", {
         redirect: false,
-        userId,
+        userId: userId,
         twoFactorToken: token,
+        // Important: add a flag to distinguish this from regular login
+        is2FAVerification: "true"
       });
 
       if (signInResponse?.error) {
+        console.error("2FA verification error:", signInResponse.error);
         setError(signInResponse.error);
         setIsLoading(false);
         return;
       }
 
-      router.push("/dashboard"); // Redirect to dashboard after successful 2FA
+      // Success - redirect to dashboard
+      router.push("/dashboard");
     } catch (error: any) {
+      console.error("2FA error:", error);
       setError(error.message || "Something went wrong");
       setIsLoading(false);
     }

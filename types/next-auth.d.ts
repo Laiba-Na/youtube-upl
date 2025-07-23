@@ -7,6 +7,8 @@ declare module "next-auth" {
     id: string;
     name: string;
     email: string;
+    twoFactorSecret?: string;
+    twoFactorEnabled: boolean;
     googleAccounts?: Pick<GoogleAccount, 'id' | 'googleEmail' | 'providerAccountId'>[];
     facebookAccounts?: Pick<FacebookAccount, 'id' | 'providerAccountId' | 'pageId' | 'pageName'>[];
   }
