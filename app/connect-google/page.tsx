@@ -154,7 +154,7 @@ export default function ConnectGoogle() {
       <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10">
         <Link
           className="group flex items-center justify-center w-12 h-12 rounded-full overflow-hidden bg-highlightOrange shadow-md transition-all duration-300 hover:w-48"
-          href="/Dashboard"
+          href="/DASHBOARD"
         >
           <AiOutlineArrowRight className="text-xl transition-transform duration-300 group-hover:-rotate-90 fill-white" />
           <span className="ml-2 opacity-0 group-hover:opacity-100 transition-all duration-300 text-sm whitespace-nowrap text-white">

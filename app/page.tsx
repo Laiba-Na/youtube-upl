@@ -13,10 +13,9 @@ export default function Home() {
 
     if (status === "unauthenticated") {
       router.push("/login");
-    } else if (session?.user?.googleConnected) {
-      router.push("/upload");
-    } else {
-      router.push("/connect-google");
+    }
+    else {
+      router.push("/DASHBOARD");
     }
   }, [status, session, router]);
 

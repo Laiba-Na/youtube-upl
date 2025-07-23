@@ -21,14 +21,22 @@ export const rolePermissions = {
   ],
   [Role.POST_CREATOR]: [
     "DASHBOARD",
-    "POST_EDITING"
+    "POST_EDITING",
+    "POST_CATALOG"
   ],
   [Role.ANALYTICS]: [
     "DASHBOARD",
     "ANALYTICS"
   ],
   [Role.MEMBER]: [
-    "DASHBOARD" // Basic access
+    "DASHBOARD", 
+    "POST_CATALOG", 
+    "POST_EDITING", 
+    "ANALYTICS", 
+    "CALENDAR", 
+    "POST_MEDIA",
+    "TEAM_SETUP",
+    "SETTINGS"
   ]
 };
 

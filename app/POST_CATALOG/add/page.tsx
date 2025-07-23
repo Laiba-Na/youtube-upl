@@ -93,7 +93,7 @@ export default function AddPostPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed to create post');
-      router.push('/posts');
+      router.push('/POST_CATALOG');
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Failed to create post');

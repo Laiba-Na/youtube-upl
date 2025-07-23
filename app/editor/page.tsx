@@ -114,10 +114,10 @@ export default function EditorPage() {
             {projectData ? `Editing: ${projectData.name}` : 'New Design'}
           </h1>
           <button
-            onClick={() => router.push('/Editordashboard')}
+            onClick={() => router.push('/POST_EDITING')}
             className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
           >
-            Back to Dashboard
+            Back to Post Dashboard
           </button>
         </div>
       </header>

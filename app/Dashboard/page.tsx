@@ -6,6 +6,7 @@ import WeeklySchedule from "@/components/WeeklySchedule";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import imageGradient from '../round.jpg';
 import TopBar from "@/components/TopBar";
+import Link from "next/link";
 
 
 const data = [
@@ -54,10 +55,11 @@ export default function PostEditing() {
 
         <div className=" pl-16 pr-16  place-content-center flex justify-between place-items-center row-span-1 col-span-1 mt-8">
           {/* Gradient SVG */}
-          <div className="w-80 relative">
+          <div className="w-80 relative hover:rotate-90 hover:scale-75 transition-transform duration-500">
+            <Link href='/SocialMediaAssistance'>
           <img src={imageGradient.src} alt="Round graphic" className="object-cover" /> 
           
-            
+          </Link>
           </div>
 
           {/* Mini Schedule */}

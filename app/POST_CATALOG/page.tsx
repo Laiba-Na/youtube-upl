@@ -54,7 +54,7 @@ export default function PostsPage() {
       <h1 className="text-2xl font-bold mb-4">Your Posts</h1>
       {posts.length === 0 ? (
         <p>
-          No posts yet. <Link href="/posts/add" className="text-blue-500 hover:underline">Add a new post</Link>
+          No posts yet. <Link href="/POST_CATALOG/add" className="text-blue-500 hover:underline">Add a new post</Link>
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -68,7 +68,7 @@ export default function PostsPage() {
               </p>
               {post.hashtags && <p className="text-sm text-gray-500 mb-2">Hashtags: {post.hashtags}</p>}
               <Link
-                href={`/PostMedia/${post.id}`}
+                href={`POST_MEDIA/PostMedia/${post.id}`}
                 className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Share
@@ -78,7 +78,7 @@ export default function PostsPage() {
         </div>
       )}
       <div className="mt-4">
-        <Link href="/posts/add" className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+        <Link href="/POST_CATALOG/add" className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
           Add New Post
         </Link>
       </div>

@@ -21,7 +21,7 @@ export default function Login() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/social-links");
+      router.push("/DASHBOARD");
     }
 
     const registered = searchParams.get("registered");
@@ -75,7 +75,7 @@ export default function Login() {
         }
       } else {
         // Normal login success
-        router.push("/social-links");
+        router.push("/DASHBOARD");
       }
     } catch (error: any) {
       setError(error.message || "Login failed");

@@ -18,9 +18,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const appUrl = process.env.NEXTAUTH_URL;
   if (!appUrl) {
-    throw new Error('NEXT_PUBLIC_APP_URL is not set');
+    throw new Error('NEXTAUTH_URL is not set');
   }
   const imageUrl = post.imageUrl.startsWith('http') ? post.imageUrl : `${appUrl}${post.imageUrl}`;
 
@@ -63,9 +63,9 @@ export default async function PostMediaPage({ params }: { params: { id: string }
   }
 
   // Construct absolute URLs
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const appUrl = process.env.NEXTAUTH_URL;
   if (!appUrl) {
-    throw new Error('NEXT_PUBLIC_APP_URL is not set');
+    throw new Error('NEXTAUTH_URL is not set');
   }
   const postUrl = `${appUrl}/posts/${post.id}`;
   const imageUrl = post.imageUrl.startsWith('http') ? post.imageUrl : `${appUrl}${post.imageUrl}`;

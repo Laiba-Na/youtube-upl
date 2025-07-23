@@ -15,11 +15,11 @@ type NavItem = {
 const navItems: NavItem[] = [
   { name: 'DASHBOARD', path: '/DASHBOARD', resource: 'DASHBOARD' },
   { name: 'POST CATALOG', path: '/POST_CATALOG', resource: 'POST_CATALOG' },
-  { name: 'POST EDITING', path: '/POST_EDITING', resource: 'POST_EDITING' },
+  { name: 'CREATE POST', path: '/POST_EDITING', resource: 'POST_EDITING' },
   { name: 'ANALYTICS', path: '/ANALYTICS', resource: 'ANALYTICS' },
   { name: 'CALENDAR', path: '/CALENDAR', resource: 'CALENDAR' },
   { name: 'POST MEDIA', path: '/POST_MEDIA', resource: 'POST_MEDIA' },
-  { name: 'TEAM SETUP', path: '/TEAM_SETUP', resource: 'TEAM_SETUP' },
+  { name: 'TEAM SETUP', path: '/SETTINGS/TEAM_SETUP', resource: 'TEAM_SETUP' },
   { name: 'SETTINGS', path: '/SETTINGS', resource: 'SETTINGS' },
 ];
 

@@ -48,7 +48,7 @@ export default function TwoFactorSetup() {
         throw new Error(errorData.error || "Invalid 2FA code");
       }
 
-      router.push("/settings/2fa-success?2fa=enabled");
+      router.push("/SETTINGS/2fa-success?2fa=enabled");
     } catch (error: any) {
       setError(error.message || "Something went wrong");
     } finally {
