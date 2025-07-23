@@ -480,10 +480,37 @@ export const authOptions: NextAuthOptions = {
             pageName: true
           },
         });
+
+
+    // Load team memberships and roles
+    const teamMemberships = await prisma.teamMember.findMany({
+      where: { userId: token.id as string },
+      include: {
+        team: true
+      }
+    });
+    
+    // Get user type
+    const user = await prisma.user.findUnique({
+      where: { id: token.id as string },
+      select: {
+        userType: true
+      }
+    });
+    
+    // Add user's primary role if they're in a team
+    let primaryRole = null;
+    if (teamMemberships.length > 0) {
+      primaryRole = teamMemberships[0].role;
+    }
+    
         
         // Add accounts to session
         session.user.googleAccounts = googleAccounts;
         session.user.facebookAccounts = facebookAccounts;
+        session.user.teamMemberships = teamMemberships;
+    session.user.userType = user?.userType || "INDIVIDUAL";
+    session.user.role = primaryRole;
         
         // If we have temporary Google credentials, add them to session
         if (token.googleAccessToken && token.googleRefreshToken && token.googleEmail) {

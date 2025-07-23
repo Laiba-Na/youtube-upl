@@ -9,20 +9,64 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//team
+
+
+enum UserType {
+  INDIVIDUAL
+  TEAM_MEMBER
+}
+
+model Team {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String        // The admin/owner of the team
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     TeamMember[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId]) // Prevent duplicate team memberships
+}
+
+enum Role {
+  ADMIN           // Full access to everything
+  POST_SCHEDULER  // Access to POST_CATALOG, CALENDAR, POST_MEDIA
+  POST_CREATOR    // Access to POST_EDITING
+  ANALYTICS       // Access to ANALYTICS
+  MEMBER          // Basic access (customizable)
+}
+
 model User {
   id             String          @id @default(uuid())
   name           String
   email          String          @unique
   password       String
   projects  Project[]
-
   // Remove fields: googleConnected, googleRefreshToken
   googleAccounts GoogleAccount[] // one-to-many relationship
     facebookAccounts FacebookAccount[] // Added relation for Facebook accounts
   posts          Post[]          // Added relation for posts
   twoFactorSecret String? // Store the 2FA secret
   twoFactorEnabled Boolean @default(false) // Whether 2FA is enabled
+teamMemberships  TeamMember[] // Add this relation
+  userType         UserType     @default(INDIVIDUAL)
 }
+
+
+
+//google
 
 model GoogleAccount {
   id                String   @id @default(uuid())

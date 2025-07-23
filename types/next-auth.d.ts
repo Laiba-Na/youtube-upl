@@ -11,6 +11,9 @@ declare module "next-auth" {
     twoFactorEnabled: boolean;
     googleAccounts?: Pick<GoogleAccount, 'id' | 'googleEmail' | 'providerAccountId'>[];
     facebookAccounts?: Pick<FacebookAccount, 'id' | 'providerAccountId' | 'pageId' | 'pageName'>[];
+    teamMemberships?: (TeamMember & { team: Team })[];
+    userType?: UserType;
+    role?: Role;
   }
 
   interface Session {
@@ -39,5 +42,7 @@ declare module "next-auth/jwt" {
     facebookRefreshToken?: string | null;
     facebookEmail?: string;
     facebookProviderId?: string;
+    role?: Role;
+    userType?: UserType;
   }
 }
