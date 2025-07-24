@@ -7,6 +7,7 @@ import { SocialPost } from "@prisma/client";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 
+// Setup the localizer for react-big-calendar
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
   format,
@@ -16,8 +17,10 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// Define the views we want to show
 const allowedViews = [Views.MONTH, Views.WEEK, Views.DAY];
 
+// Define ToolbarProps manually based on react-big-calendar's toolbar props
 interface ToolbarProps {
   label: string;
   onNavigate: (action: "PREV" | "NEXT" | "TODAY" | "DATE") => void;
@@ -27,6 +30,7 @@ interface ToolbarProps {
   views: string[];
 }
 
+// Custom Toolbar Component with explicit typing
 interface CustomToolbarProps extends ToolbarProps {
   onButtonClick: () => void;
 }
@@ -120,19 +124,19 @@ export default function SocialCalendar({
     setIsOpen(true);
   };
 
-  const platformIcons: { [key: string]: string } = {
-    YOUTUBE: "🎥",
-    Instagram: "📷",
-    Twitter: "🐦",
-    Facebook: "📘",
-    LinkedIn: "💼",
-  };
-
+  // Custom Event Component for card-like display
   const EventCard = ({ event }: { event: any }) => {
     const post = event.resource as SocialPost;
+    const platformIcons: { [key: string]: string } = {
+      Instagram: "📷",
+      Twitter: "🐦",
+      Facebook: "📘",
+      LinkedIn: "💼",
+    };
 
     return (
       <div className="bg-white rounded-xl shadow-lg p-3 m-2 border border-gray-100 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 min-w-[200px]">
+        {/* Header Section: Platform Icon and Name */}
         <div className="flex items-center space-x-2 mb-2">
           <span className="text-2xl">
             {platformIcons[post.platform] || "📌"}
@@ -141,6 +145,8 @@ export default function SocialCalendar({
             {post.platform}
           </span>
         </div>
+
+        {/* Image Section */}
         {post.mediaUrl ? (
           <img
             src={post.mediaUrl}
@@ -149,7 +155,7 @@ export default function SocialCalendar({
             onError={(e) => {
               console.log("Image failed to load:", post.mediaUrl);
               e.currentTarget.src =
-                "https://via.placeholder.com/150?text=Image+Not+Found";
+                "https://via.placeholder.com/150?text=Image+Not+Found"; // Fallback image
             }}
           />
         ) : (
@@ -157,9 +163,13 @@ export default function SocialCalendar({
             No Image
           </div>
         )}
+
+        {/* Content Preview */}
         <p className="text-xs text-gray-700 font-medium truncate">
           {post.content.substring(0, 30)}...
         </p>
+
+        {/* Status Indicator */}
         <div className="mt-2 flex justify-end">
           <span
             className={`text-xs font-semibold px-2 py-1 rounded-full ${
@@ -177,8 +187,20 @@ export default function SocialCalendar({
     );
   };
 
+  // Helper function to get platform icon
   const getPlatformIcon = (platform: string | undefined) => {
-    return platformIcons[platform || ""] || "📌";
+    switch (platform) {
+      case "Instagram":
+        return "📷";
+      case "Twitter":
+        return "🐦";
+      case "Facebook":
+        return "📘";
+      case "LinkedIn":
+        return "💼";
+      default:
+        return "📌";
+    }
   };
 
   return (
@@ -215,7 +237,7 @@ export default function SocialCalendar({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
+            <div className="fixed inset-0 bg-black bg-opacity-100" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">

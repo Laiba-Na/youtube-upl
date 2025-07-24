@@ -6,19 +6,18 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    console.error("No session or user ID found");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const accounts = await prisma.googleAccount.findMany({
+    const accounts = await prisma.facebookAccount.findMany({
       where: { userId: session.user.id },
-      select: { id: true, googleEmail: true },
+      select: { id: true, pageName: true },
     });
 
     return NextResponse.json(accounts);
   } catch (error) {
-    console.error("Error fetching Google accounts:", error);
+    console.error("Error fetching Facebook accounts:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -29,25 +28,21 @@ export async function GET() {
 export async function DELETE(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    console.error("No session or user ID found");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const { accountId } = await request.json();
-    if (!accountId) {
-      return NextResponse.json(
-        { error: "Account ID required" },
-        { status: 400 }
-      );
-    }
+  const { accountId } = await request.json();
+  if (!accountId) {
+    return NextResponse.json({ error: "Account ID required" }, { status: 400 });
+  }
 
-    await prisma.googleAccount.delete({
+  try {
+    await prisma.facebookAccount.delete({
       where: { id: accountId, userId: session.user.id },
     });
     return NextResponse.json({ message: "Account disconnected" });
   } catch (error) {
-    console.error("Error disconnecting Google account:", error);
+    console.error("Error disconnecting Facebook account:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

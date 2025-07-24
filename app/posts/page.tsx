@@ -1,75 +1,81 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import Link from 'next/link';
-
-interface Post {
-  id: string;
-  title: string;
-  description: string | null;
-  hashtags: string | null;
-  imageUrl: string;
-  createdAt: string;
-}
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
 export default function PostsPage() {
-  const { data: session, status } = useSession();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (session?.user?.id) {
       fetchPosts();
-    } else {
-      setLoading(false);
     }
-  }, [status]);
+  }, [session]);
 
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/posts');
-      if (!res.ok) throw new Error('Failed to fetch posts');
-      const data = await res.json();
+      const response = await fetch("/api/posts");
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch posts: ${text}`);
+      }
+      const data = await response.json();
       setPosts(data);
     } catch (error) {
-      console.error('Error fetching posts:', error);
-      alert('Failed to load posts');
+      console.error("Fetch posts error:", error);
+      toast.error("Failed to load posts");
     } finally {
       setLoading(false);
     }
   };
 
-  if (status === 'unauthenticated') {
-    return <div className="p-4 text-center text-red-500">Please log in to view your posts.</div>;
-  }
-
-  if (loading) {
-    return <div className="p-4 text-center">Loading...</div>;
-  }
-
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Your Posts</h1>
-      {posts.length === 0 ? (
-        <p>
-          No posts yet. <Link href="/posts/add" className="text-blue-500 hover:underline">Add a new post</Link>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
+        Your Posts
+      </h1>
+      {loading ? (
+        <p className="text-gray-500 dark:text-gray-400">Loading posts...</p>
+      ) : posts.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400">
+          No posts found.{" "}
+          <Link
+            href="/posts/add"
+            className="text-indigo-600 dark:text-indigo-400"
+          >
+            Add a post
+          </Link>
+          .
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post) => (
-            <div key={post.id} className="border p-4 rounded shadow">
-              <img src={post.imageUrl} alt={post.title} className="w-full h-48 object-cover mb-2 rounded" />
-              <h2 className="text-xl font-semibold mb-1">{post.title}</h2>
-              <p className="text-gray-600 mb-2">{post.description}</p>
-              <p className="text-sm text-gray-500 mb-2">
-                Created at: {new Date(post.createdAt).toLocaleDateString()}
+            <div
+              key={post.id}
+              className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md"
+            >
+              <img
+                src={post.imageUrl}
+                alt={post.title}
+                className="w-full h-40 object-cover rounded-md mb-4"
+              />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {post.title}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300">
+                {post.description}
               </p>
-              {post.hashtags && <p className="text-sm text-gray-500 mb-2">Hashtags: {post.hashtags}</p>}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {post.hashtags}
+              </p>
               <Link
                 href={`/PostMedia/${post.id}`}
-                className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="text-indigo-600 dark:text-indigo-400 mt-2 inline-block"
               >
                 Share
               </Link>
@@ -77,11 +83,12 @@ export default function PostsPage() {
           ))}
         </div>
       )}
-      <div className="mt-4">
-        <Link href="/posts/add" className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-          Add New Post
-        </Link>
-      </div>
+      <Link
+        href="/posts/add"
+        className="fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 dark:hover:bg-indigo-500"
+      >
+        Add Post
+      </Link>
     </div>
   );
 }

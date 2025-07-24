@@ -355,11 +355,11 @@ export const authOptions: NextAuthOptions = {
           const googleAccount = user.googleAccounts?.[0];
           if (googleAccount?.refreshToken) {
             session.googleRefreshToken = googleAccount.refreshToken;
-            session.googleAccessToken = googleAccount.accessToken; // Type is string | null, which matches
+            session.googleAccessToken = googleAccount.accessToken; // Type is string | null
           }
           const facebookAccount = user.facebookAccounts?.[0];
           if (facebookAccount?.accessToken) {
-            session.facebookAccessToken = facebookAccount.accessToken; // Type is string | null, which matches
+            session.facebookAccessToken = facebookAccount.accessToken; // Type is string | null
           }
         }
       }

@@ -53,8 +53,6 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-500 via-primaryPurple to-primaryRed p-4">
-      
-
       <div className="relative w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
         {/* Header */}
         <h2 className="mb-6 text-center text-2xl font-bold text-textBlack">
@@ -78,7 +76,10 @@ export default function Login() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="email-address"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Email Address
             </label>
             <input
@@ -95,7 +96,10 @@ export default function Login() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input
@@ -130,11 +134,15 @@ export default function Login() {
 
         {/* Create Account Link */}
         <div className="mt-4 text-center text-sm">
-          <Link href="/register" className="font-medium text-purple-600 hover:text-primaryPurple">
+          <Link
+            href="/register"
+            className="font-medium text-purple-600 hover:text-primaryPurple"
+          >
             Create Your Account &rarr;
           </Link>
         </div>
       </div>
+         
     </div>
   );
 }

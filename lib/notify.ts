@@ -1,30 +1,38 @@
 import emailjs from "@emailjs/browser";
 
-export async function notifyUser(
+export const notifyUser = async (
   email: string,
   subject: string,
   message: string
-): Promise<boolean> {
+): Promise<boolean> => {
   try {
+    const serviceId = "service_bszi0y6";
+    const templateId = "template_srvrqae";
+    const publicKey = "u0ZFvzFD-Un6RF9xI";
+
     const templateParams = {
       to_email: email,
-      subject,
-      message,
+      subject: subject,
+      message: message,
     };
 
-    const response = await emailjs.send(
-      process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
-      process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
-      templateParams,
-      process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
-    );
+    console.log("Sending email to:", email, "with params:", templateParams);
 
-    console.log("Email sent successfully:", response.status, response.text);
-    return true;
+    const response = await emailjs.send(
+      serviceId,
+      templateId,
+      templateParams,
+      publicKey
+    );
+    console.log("EmailJS response:", {
+      status: response.status,
+      text: response.text,
+    });
+    return response.status === 200;
   } catch (error: unknown) {
     const errorMessage =
-      error instanceof Error ? error.message : "Unknown email error";
-    console.error("Error sending email:", errorMessage);
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to send email to", email, ":", errorMessage, error);
     return false;
   }
-}
+};

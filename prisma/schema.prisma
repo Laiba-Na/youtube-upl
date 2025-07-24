@@ -8,11 +8,16 @@ datasource db {
 }
 
 model User {
-  id       String    @id @default(uuid())
-  name     String
-  email    String    @unique
-  password String
-  projects Project[]
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  profileImage       String?
+  emailNotifications Boolean   @default(true)
+  timezone           String    @default("Asia/Karachi")
+  darkMode           Boolean   @default(false)
+  password           String
+  projects           Project[]
+  analyticsEmails    Boolean   @default(false)
 
   // Remove fields: googleConnected, googleRefreshToken
   googleAccounts   GoogleAccount[] // one-to-many relationship
