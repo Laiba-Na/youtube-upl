@@ -13,35 +13,37 @@ export default withAuth({
     authorized: ({ token, req }) => {
       const { pathname } = req.nextUrl;
 
-      // Define public paths that don't require authentication
+      // Allow public pages without auth
       const publicPaths = ["/login", "/register", "/login/2fa"];
       if (publicPaths.includes(pathname)) {
-        return true; // Allow access to public paths
+        return true;
       }
 
-      // If no token, redirect to login
+      // If there's no token, deny access
       if (!token) {
         return false;
       }
 
-      // Check resource permissions for protected routes
+      // Route-to-resource mapping
       const routeToResourceMap = {
-        '/Dashboard': 'DASHBOARD',
-        '/posts': 'POST_CATALOG',
-        '/Editordashboard': 'POST_EDITING',
-        '/Analytics': 'ANALYTICS',
-        '/calendar': 'CALENDAR',
-        '/PostMedia': 'POST_MEDIA',
-        '/team-setup': 'TEAM_SETUP',
-        '/settings': 'SETTINGS',
+        "/Dashboard": "DASHBOARD",
+        "/posts": "POST_CATALOG",
+        "/Editordashboard": "POST_EDITING",
+        "/Analytics": "ANALYTICS",
+        "/calendar": "CALENDAR",
+        "/PostMedia": "POST_MEDIA",
+        "/team-setup": "TEAM_SETUP",
+        "/settings": "SETTINGS",
       } as const;
 
-      const resource = routeToResourceMap[pathname as keyof typeof routeToResourceMap];
-      
-      // If this is a protected resource and user's role doesn't have access
-      if (resource && !canAccess(token.role, resource)) {
-        // Redirect to dashboard or show access denied
-        return false;
+      const resource =
+        routeToResourceMap[pathname as keyof typeof routeToResourceMap];
+
+      // If the route is protected and the user lacks permission
+      if (resource) {
+        if (!token.role || !canAccess(token.role, resource)) {
+          return false;
+        }
       }
 
       return true;
@@ -60,9 +62,9 @@ export const config = {
     "/PostMedia",
     "/team-setup",
     "/settings",
-    "/connect-google", 
-    "/upload", 
+    "/connect-google",
+    "/upload",
     "/social-links",
-    "/api/auth/getUserId"
+    "/api/auth/getUserId",
   ],
 };

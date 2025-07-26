@@ -39,26 +39,29 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-  
+
     try {
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       });
-  
+
       if (result?.error) {
         // Handle 2FA redirection
-        if (result.error === "2FA_REQUIRED" || result.error === "2FA required") {
+        if (
+          result.error === "2FA_REQUIRED" ||
+          result.error === "2FA required"
+        ) {
           console.log("2FA required, redirecting to 2FA page");
-          
+
           // Fetch the user ID to use in the 2FA verification
           try {
             const response = await fetch(
               `/api/auth/getUserId?email=${encodeURIComponent(email)}`
             );
             const data = await response.json();
-            
+
             if (data.userId) {
               router.push(`/login/2fa?userId=${data.userId}`);
               return;
@@ -101,7 +104,8 @@ export default function Login() {
         {/* 2FA enabled message */}
         {is2faEnabled && (
           <div className="mb-4 rounded border border-green-400 bg-green-100 px-4 py-3 text-green-700">
-            Two-factor authentication has been successfully enabled. Please log in with your credentials and authenticator code.
+            Two-factor authentication has been successfully enabled. Please log
+            in with your credentials and authenticator code.
           </div>
         )}
 
@@ -115,7 +119,10 @@ export default function Login() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="email-address"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Email Address
             </label>
             <input
@@ -132,7 +139,10 @@ export default function Login() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input
@@ -161,13 +171,16 @@ export default function Login() {
             disabled={isLoading}
             className="mt-2 w-full rounded bg-primaryPurple px-4 py-2 text-sm font-medium text-white shadow-md hover:border-2 hover:bg-white hover:border-primaryPurple focus:outline-none focus:ring-2 focus:ring-primaryPurple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:text-primaryPurple"
           >
-            {isLoading ? 'Signing in...' : 'Login'}
+            {isLoading ? "Signing in..." : "Login"}
           </button>
         </form>
 
         {/* Create Account Link */}
         <div className="mt-4 text-center text-sm">
-          <Link href="/register" className="font-medium text-purple-600 hover:text-primaryPurple">
+          <Link
+            href="/register"
+            className="font-medium text-purple-600 hover:text-primaryPurple"
+          >
             Create Your Account →
           </Link>
         </div>

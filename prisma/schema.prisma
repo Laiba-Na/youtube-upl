@@ -1,5 +1,3 @@
-
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,19 +9,18 @@ datasource db {
 
 //team
 
-
 enum UserType {
   INDIVIDUAL
   TEAM_MEMBER
 }
 
 model Team {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   description String?
-  ownerId     String        // The admin/owner of the team
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  ownerId     String // The admin/owner of the team
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   members     TeamMember[]
 }
 
@@ -41,50 +38,56 @@ model TeamMember {
 }
 
 enum Role {
-  ADMIN           // Full access to everything
-  POST_SCHEDULER  // Access to POST_CATALOG, CALENDAR, POST_MEDIA
-  POST_CREATOR    // Access to POST_EDITING
-  ANALYTICS       // Access to ANALYTICS
-  MEMBER          // Basic access (customizable)
+  ADMIN // Full access to everything
+  POST_SCHEDULER // Access to POST_CATALOG, CALENDAR, POST_MEDIA
+  POST_CREATOR // Access to POST_EDITING
+  ANALYTICS // Access to ANALYTICS
+  MEMBER // Basic access (customizable)
 }
 
 model User {
-  id             String          @id @default(uuid())
-  name           String
-  email          String          @unique
-  password       String
-  projects  Project[]
+  id                 String            @id @default(uuid())
+  name               String
+  email              String            @unique
+  password           String
+  profileImage       String?
+  emailNotifications Boolean           @default(true)
+  timezone           String            @default("Asia/Karachi")
+  darkMode           Boolean           @default(false)
+  analyticsEmails    Boolean           @default(false)
+  projects           Project[]
   // Remove fields: googleConnected, googleRefreshToken
-  googleAccounts GoogleAccount[] // one-to-many relationship
-    facebookAccounts FacebookAccount[] // Added relation for Facebook accounts
-  posts          Post[]          // Added relation for posts
-  twoFactorSecret String? // Store the 2FA secret
-  twoFactorEnabled Boolean @default(false) // Whether 2FA is enabled
-teamMemberships  TeamMember[] // Add this relation
-  userType         UserType     @default(INDIVIDUAL)
+  googleAccounts     GoogleAccount[] // one-to-many relationship
+  facebookAccounts   FacebookAccount[] // Added relation for Facebook accounts
+  posts              Post[] // Added relation for posts
+  twoFactorSecret    String? // Store the 2FA secret
+  twoFactorEnabled   Boolean           @default(false) // Whether 2FA is enabled
+  teamMemberships    TeamMember[] // Add this relation
+  userType           UserType          @default(INDIVIDUAL)
+  SocialPost         SocialPost[]
 }
-
-
 
 //google
 
 model GoogleAccount {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   provider          String
   providerAccountId String // Unique identifier provided by Google
   googleEmail       String
   refreshToken      String
+  expiresAt         DateTime?
+  accessToken       String?
   userId            String
-  user              User     @relation(fields: [userId], references: [id])
-  createdAt         DateTime @default(now())
+  user              User      @relation(fields: [userId], references: [id])
+  createdAt         DateTime  @default(now())
 }
 
 model Project {
   id          String   @id @default(cuid())
   name        String
   description String?
-  content     Json     // Stores canvas state
-  thumbnail   String?  // Path to thumbnail
+  content     Json // Stores canvas state
+  thumbnail   String? // Path to thumbnail
   user        User     @relation(fields: [userId], references: [id])
   userId      String
   createdAt   DateTime @default(now())
@@ -94,29 +97,30 @@ model Project {
 }
 
 model Asset {
-  id         String   @id @default(cuid())
-  project    Project  @relation(fields: [projectId], references: [id])
-  projectId  String
-  url        String
-  key        String   // e.g. Cloudinary public_id
-  filename   String
-  mimeType   String
-  size       Int
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  url       String
+  key       String // e.g. Cloudinary public_id
+  filename  String
+  mimeType  String
+  size      Int
+  createdAt DateTime @default(now())
 }
 
-
 model Post {
-  id          String   @id @default(cuid())
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
   title       String
   description String?
-  hashtags    String?  // e.g., "tag1,tag2,tag3"
+  hashtags    String? // e.g., "tag1,tag2,tag3"
   imageUrl    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
 model FacebookAccount {
   id                String   @id @default(uuid())
   provider          String
@@ -131,4 +135,33 @@ model FacebookAccount {
   userId            String
   user              User     @relation(fields: [userId], references: [id])
   createdAt         DateTime @default(now())
+}
+
+model SocialPost {
+  id          String   @id @default(uuid())
+  userId      String?
+  content     String
+  platform    String
+  scheduledAt DateTime
+  mediaUrl    String?
+  status      String
+  projectId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Platform {
+  YOUTUBE
+  INSTAGRAM
+  LINKEDIN
+  FACEBOOK
+}
+
+enum Status {
+  DRAFT
+  SCHEDULED
+  POSTED
+  NOTIFIED
+  FAILED
 }
