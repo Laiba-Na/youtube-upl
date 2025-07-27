@@ -128,10 +128,10 @@ export default function SocialCalendar({
   const EventCard = ({ event }: { event: any }) => {
     const post = event.resource as SocialPost;
     const platformIcons: { [key: string]: string } = {
-      Instagram: "📷",
-      Twitter: "🐦",
-      Facebook: "📘",
-      LinkedIn: "💼",
+      YOUTUBE: "🎥",
+      INSTAGRAM: "📷",
+      LINKEDIN: "💼",
+      FACEBOOK: "📘",
     };
 
     return (
@@ -190,14 +190,14 @@ export default function SocialCalendar({
   // Helper function to get platform icon
   const getPlatformIcon = (platform: string | undefined) => {
     switch (platform) {
-      case "Instagram":
+      case "YOUTUBE":
+        return "🎥";
+      case "INSTAGRAM":
         return "📷";
-      case "Twitter":
-        return "🐦";
-      case "Facebook":
-        return "📘";
-      case "LinkedIn":
+      case "LINKEDIN":
         return "💼";
+      case "FACEBOOK":
+        return "📘";
       default:
         return "📌";
     }

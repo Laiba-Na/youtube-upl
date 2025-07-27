@@ -15,17 +15,19 @@ export default function CalendarPage() {
   const [isAddPostOpen, setIsAddPostOpen] = useState(false);
   const [newPost, setNewPost] = useState({
     content: "",
-    platform: "", // Stored as comma-separated string
+    platform: "",
     scheduledAt: "",
     mediaUrl: "",
-    description: "", // For YouTube
-    tags: "", // For YouTube
-    privacyStatus: "private", // For YouTube
+    description: "",
+    tags: "",
+    privacyStatus: "private",
+    imageUrl: "",
+    title: "",
+    hashtags: "",
   });
   const [backgroundStyle, setBackgroundStyle] = useState({});
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch posts on mount and periodically
   useEffect(() => {
     async function fetchPosts() {
       if (!session?.user?.id) {
@@ -42,7 +44,7 @@ export default function CalendarPage() {
         }
         const data = await response.json();
         console.log("Fetched posts:", data);
-        setPosts(data);
+        setPosts(data.filter((post: SocialPost) => post.scheduledAt));
       } catch (err) {
         console.error("Error fetching posts:", err);
         setError("Failed to load posts. Please try again.");
@@ -51,11 +53,10 @@ export default function CalendarPage() {
     }
 
     fetchPosts();
-    const intervalId = setInterval(fetchPosts, 30 * 1000); // Refresh every 30 seconds
+    const intervalId = setInterval(fetchPosts, 30 * 1000);
     return () => clearInterval(intervalId);
   }, [session]);
 
-  // Handle button click for background effect
   const handleButtonClick = () => {
     setBackgroundStyle({
       background:
@@ -65,7 +66,6 @@ export default function CalendarPage() {
     setTimeout(() => setBackgroundStyle({}), 1000);
   };
 
-  // Handle video upload for YouTube
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -117,23 +117,47 @@ export default function CalendarPage() {
     }
   };
 
-  // Handle image upload for non-YouTube platforms
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setError("No file selected");
+      return;
+    }
+
+    console.log("Selected file:", file); // Debug: Check file object
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file");
+      toast.error("Please select a valid image file");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
+    console.log("FormData entries:", Array.from(formData.entries())); // Debug: Check form data
 
     try {
-      const res = await fetch("/api/assets/upload", {
+      const response = await fetch("/api/assets/upload", {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("Failed to upload image");
-      const { url } = await res.json();
-      setNewPost((prev) => ({ ...prev, mediaUrl: url }));
-      toast.success("Image uploaded successfully!");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || `Upload failed with status: ${response.status}`
+        );
+      }
+      const data = await response.json();
+      console.log("Upload response:", data); // Debug: Check response
+      if (data.url) {
+        setNewPost((prev) => ({
+          ...prev,
+          imageUrl: data.url,
+          mediaUrl: data.url,
+        })); // Update both imageUrl and mediaUrl
+        toast.success("Image uploaded successfully!");
+      } else {
+        throw new Error("No URL returned from upload");
+      }
     } catch (error) {
       console.error("Error uploading image:", error);
       setError(
@@ -149,7 +173,6 @@ export default function CalendarPage() {
     }
   };
 
-  // Handle form submission for new post
   const handleAddPost = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -160,140 +183,203 @@ export default function CalendarPage() {
       return;
     }
 
-    // Validation
-    if (!newPost.content || !newPost.scheduledAt || !newPost.platform) {
-      setError(
-        "Please fill all required fields (content, platform, scheduled date)"
-      );
-      toast.error("Please fill all required fields");
-      return;
-    }
-
-    const scheduledAtLocal = new Date(newPost.scheduledAt);
-    if (isNaN(scheduledAtLocal.getTime())) {
-      setError("Invalid date format for scheduled time");
-      toast.error("Invalid date format");
-      return;
-    }
-
-    // YouTube specific validation
-    if (newPost.platform.includes("YOUTUBE")) {
-      if (!newPost.mediaUrl || !newPost.description) {
-        setError("For YouTube, content, description, and video are required");
-        toast.error(
-          "For YouTube, content, description, and video are required"
+    try {
+      if (!newPost.content || !newPost.scheduledAt || !newPost.platform) {
+        setError(
+          "Please fill all required fields (content, platform, scheduled date)"
         );
+        toast.error("Please fill all required fields");
         return;
       }
-    }
 
-    const existingPost = posts.find(
-      (post) =>
-        post.content === newPost.content &&
-        new Date(post.scheduledAt).getTime() === scheduledAtLocal.getTime() &&
-        post.platform.split(",").some((p) => newPost.platform.includes(p))
-    );
+      const scheduledAtLocal = new Date(newPost.scheduledAt);
+      if (isNaN(scheduledAtLocal.getTime())) {
+        setError("Invalid date format for scheduled time");
+        toast.error("Invalid date format");
+        return;
+      }
 
-    if (existingPost) {
-      setError(
-        "A post with the same content and scheduled time already exists for one of the selected platforms."
+      const platforms = newPost.platform.split(",").filter((p) => p);
+      const existingPosts = posts.filter(
+        (post) =>
+          platforms.some((p) => post.platform.includes(p)) &&
+          post.content === newPost.content &&
+          new Date(post.scheduledAt).getTime() === scheduledAtLocal.getTime()
       );
-      toast.error("Post already exists for one of the platforms");
-      return;
-    }
 
-    const postData = {
-      content: newPost.content,
-      platform: newPost.platform,
-      scheduledAt: scheduledAtLocal.toISOString().slice(0, -1),
-      mediaUrl: newPost.mediaUrl || null,
-      userId: session.user.id,
-    };
+      if (existingPosts.length > 0) {
+        setError(
+          "A post with the same content and scheduled time already exists for one of the selected platforms."
+        );
+        toast.error("Post already exists for one of the platforms");
+        return;
+      }
 
-    const response = await fetch("/api/calendar/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(postData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.error || `Failed to create post (status: ${response.status})`
-      );
-    }
-
-    const newPostData = await response.json();
-
-    const userResponse = await fetch("/api/user/settings");
-    if (!userResponse.ok) {
-      throw new Error("Failed to fetch user settings");
-    }
-    const userData = await userResponse.json();
-
-    if (userData.emailNotifications) {
-      const emailData = {
-        to_email: session.user.email,
-        name: session.user.name || "Friend",
-        platform: newPost.platform,
-        scheduledAt: scheduledAtLocal.toLocaleString("en-US", {
-          timeZone: "Asia/Karachi",
-          hour12: true,
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        content: newPost.content,
+      let postTableData = {
+        userId: session.user.id,
+        title: newPost.title || newPost.content,
+        description: newPost.description,
+        hashtags: newPost.hashtags,
+        imageUrl: platforms.includes("YOUTUBE")
+          ? newPost.mediaUrl
+          : newPost.imageUrl,
+        scheduledAt: scheduledAtLocal.toISOString().slice(0, -1),
+        platforms: platforms.join(","),
       };
 
-      const emailSendTime = scheduledAtLocal.getTime() - 60 * 60 * 1000; // 1 hour before
-      const currentTime = new Date().getTime();
+      // Save to Post table (only once)
+      const postResponse = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postTableData),
+      });
 
-      if (emailSendTime <= currentTime) {
-        await sendEmail(emailData);
-      } else {
-        setTimeout(async () => {
+      if (!postResponse.ok) {
+        const errorData = await postResponse.json();
+        throw new Error(
+          errorData.error ||
+            `Failed to create post in Post table (status: ${postResponse.status})`
+        );
+      }
+
+      const postDataResult = await postResponse.json();
+
+      for (const platform of platforms) {
+        let postData: any = {
+          content: newPost.content,
+          platform,
+          scheduledAt: scheduledAtLocal.toISOString().slice(0, -1),
+          userId: session.user.id,
+        };
+
+        if (platform === "YOUTUBE") {
+          if (!newPost.mediaUrl) {
+            setError("Video is required for YouTube");
+            toast.error("Video is required for YouTube");
+            return;
+          }
+          postData.mediaUrl = newPost.mediaUrl;
+          // Auto-post logic for YouTube (assuming API call for auto-post)
+          const autoPostResponse = await fetch("/api/youtube/autopost", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: newPost.content,
+              mediaUrl: newPost.mediaUrl,
+              description: newPost.description,
+              tags: newPost.tags.split(","),
+              privacyStatus: newPost.privacyStatus,
+              scheduledAt: scheduledAtLocal.toISOString().slice(0, -1),
+              googleAccountId: session?.user?.googleAccounts?.[0]?.id,
+            }),
+          });
+          if (!autoPostResponse.ok) {
+            const errorData = await autoPostResponse.json();
+            console.warn(`Auto-post failed for YouTube: ${errorData.error}`);
+            // Continue despite auto-post failure
+          }
+        } else {
+          if (!newPost.imageUrl) {
+            setError("Image is required for other platforms");
+            toast.error("Image is required for other platforms");
+            return;
+          }
+          postData.mediaUrl = newPost.imageUrl; // Save imageUrl as mediaUrl for non-YouTube platforms
+        }
+
+        // Save to SocialPost table
+        const socialResponse = await fetch("/api/calendar/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(postData),
+        });
+
+        if (!socialResponse.ok) {
+          const errorData = await socialResponse.json();
+          throw new Error(
+            errorData.error ||
+              `Failed to create post for ${platform} (status: ${socialResponse.status})`
+          );
+        }
+
+        const socialPostData = await socialResponse.json();
+
+        const formattedPost: SocialPost = {
+          id: socialPostData.id,
+          content: socialPostData.content,
+          platform: socialPostData.platform,
+          scheduledAt: new Date(socialPostData.scheduledAt),
+          mediaUrl: socialPostData.mediaUrl,
+          imageUrl: socialPostData.imageUrl,
+          userId: socialPostData.userId,
+          status: socialPostData.status,
+          projectId: socialPostData.projectId || null,
+          createdAt: new Date(socialPostData.createdAt),
+          updatedAt: new Date(socialPostData.updatedAt),
+        };
+
+        setPosts((prevPosts) => [...prevPosts, formattedPost]);
+      }
+
+      const userResponse = await fetch("/api/user/settings");
+      if (!userResponse.ok) {
+        throw new Error("Failed to fetch user settings");
+      }
+      const userData = await userResponse.json();
+
+      if (userData.emailNotifications) {
+        const emailData = {
+          to_email: session.user.email,
+          name: session.user.name || "Friend",
+          platforms: platforms.join(", "),
+          scheduledAt: scheduledAtLocal.toLocaleString("en-US", {
+            timeZone: "Asia/Karachi",
+            hour12: true,
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          content: newPost.content,
+        };
+
+        const emailSendTime = scheduledAtLocal.getTime() - 60 * 60 * 1000;
+        const currentTime = new Date().getTime();
+
+        if (emailSendTime <= currentTime) {
           await sendEmail(emailData);
-        }, emailSendTime - currentTime);
+        } else {
+          setTimeout(
+            async () => await sendEmail(emailData),
+            emailSendTime - currentTime
+          );
+        }
       }
+
+      setNewPost({
+        content: "",
+        platform: "",
+        scheduledAt: "",
+        mediaUrl: "",
+        description: "",
+        tags: "",
+        privacyStatus: "private",
+        imageUrl: "",
+        title: "",
+        hashtags: "",
+      });
+      setIsAddPostOpen(false);
+      toast.success("Posts scheduled successfully!");
+    } catch (error) {
+      console.error("Error creating post:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to create post"
+      );
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create post"
+      );
     }
-
-    if (newPost.platform.includes("YOUTUBE") && newPost.mediaUrl) {
-      const uploadTime = scheduledAtLocal.getTime() - new Date().getTime();
-      if (uploadTime > 0) {
-        console.log("YouTube upload scheduled via API/upload");
-      } else {
-        await uploadToYouTube(newPostData); // Immediate upload if past scheduled time
-      }
-    }
-
-    const formattedPost: SocialPost = {
-      id: newPostData.id,
-      content: newPostData.content,
-      platform: newPostData.platform,
-      scheduledAt: new Date(newPostData.scheduledAt),
-      mediaUrl: newPostData.mediaUrl,
-      userId: newPostData.userId,
-      status: newPostData.status,
-      projectId: newPostData.projectId || null,
-      createdAt: new Date(newPostData.createdAt),
-      updatedAt: new Date(newPostData.updatedAt),
-    };
-
-    setPosts((prevPosts) => [...prevPosts, formattedPost]);
-    setNewPost({
-      content: "",
-      platform: "",
-      scheduledAt: "",
-      mediaUrl: "",
-      description: "",
-      tags: "",
-      privacyStatus: "private",
-    });
-    setIsAddPostOpen(false);
-    toast.success("Post scheduled successfully!");
   };
 
   const sendEmail = async (emailData: Record<string, unknown>) => {
@@ -312,112 +398,6 @@ export default function CalendarPage() {
     } catch (error) {
       console.error("Error sending email:", error);
       throw new Error("Failed to send email");
-    }
-  };
-
-  const uploadToYouTube = async (postData: {
-    id: string;
-    content: string;
-    mediaUrl: string | null;
-  }) => {
-    const { id, content, mediaUrl } = postData;
-
-    if (!mediaUrl) {
-      console.error(`No media URL provided for post ID ${id}`);
-      throw new Error("Media URL is required for YouTube upload");
-    }
-
-    const requestBody = {
-      snippet: {
-        title: content,
-        description: content,
-        tags: ["tag1", "tag2"],
-        categoryId: "22",
-      },
-      status: {
-        privacyStatus: "public",
-      },
-    };
-
-    try {
-      console.log(
-        `Initiating YouTube upload for post ID ${id}, mediaUrl: ${mediaUrl} at ${new Date().toLocaleString(
-          "en-US",
-          { timeZone: "Asia/Karachi" }
-        )}`
-      );
-
-      const initResponse = await fetch(
-        `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.YOUTUBE_API_KEY}`,
-            "Content-Type": "application/json",
-            "X-Upload-Content-Type": "video/*",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!initResponse.ok) {
-        const errorData = await initResponse.json();
-        throw new Error(
-          `Failed to initiate upload: ${
-            errorData.error?.message || "Unknown error"
-          }`
-        );
-      }
-
-      const location = initResponse.headers.get("Location");
-      if (!location) {
-        throw new Error("No upload location received");
-      }
-
-      const mediaResponse = await fetch(mediaUrl, {
-        method: "GET",
-        mode: "cors",
-      });
-      if (!mediaResponse.ok) {
-        throw new Error(`Failed to fetch media: ${mediaResponse.statusText}`);
-      }
-
-      const videoBlob = await mediaResponse.blob();
-
-      const uploadResult = await fetch(location, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "video/mp4",
-          "Content-Length": videoBlob.size.toString(),
-        },
-        body: videoBlob,
-      });
-
-      if (!uploadResult.ok) {
-        const errorData = await uploadResult.json();
-        throw new Error(
-          `Failed to upload video: ${
-            errorData.error?.message || "Unknown error"
-          }`
-        );
-      }
-
-      const updateResponse = await fetch(`/api/calendar/posts/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "POSTED" }),
-      });
-      if (!updateResponse.ok) {
-        console.warn("Failed to update post status, but upload succeeded");
-      }
-
-      toast.success("Video uploaded to YouTube!");
-    } catch (error) {
-      console.error(`YouTube upload error for post ID ${id}:`, error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to upload to YouTube"
-      );
-      throw error;
     }
   };
 
@@ -542,6 +522,61 @@ export default function CalendarPage() {
                     </div>
                     <div>
                       <label
+                        htmlFor="title"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Title
+                      </label>
+                      <input
+                        id="title"
+                        type="text"
+                        value={newPost.title}
+                        onChange={(e) =>
+                          setNewPost({ ...newPost, title: e.target.value })
+                        }
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="description"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Description
+                      </label>
+                      <textarea
+                        id="description"
+                        value={newPost.description}
+                        onChange={(e) =>
+                          setNewPost({
+                            ...newPost,
+                            description: e.target.value,
+                          })
+                        }
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                        rows={4}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="hashtags"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Hashtags (comma-separated)
+                      </label>
+                      <input
+                        id="hashtags"
+                        type="text"
+                        value={newPost.hashtags}
+                        onChange={(e) =>
+                          setNewPost({ ...newPost, hashtags: e.target.value })
+                        }
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label
                         htmlFor="scheduledAt"
                         className="block text-sm font-medium text-gray-700"
                       >
@@ -565,27 +600,6 @@ export default function CalendarPage() {
                       <>
                         <div>
                           <label
-                            htmlFor="description"
-                            className="block text-sm font-medium text-gray-700"
-                          >
-                            Description <span className="text-red-500">*</span>
-                          </label>
-                          <textarea
-                            id="description"
-                            value={newPost.description}
-                            onChange={(e) =>
-                              setNewPost({
-                                ...newPost,
-                                description: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-                            rows={4}
-                            required={newPost.platform.includes("YOUTUBE")}
-                          />
-                        </div>
-                        <div>
-                          <label
                             htmlFor="tags"
                             className="block text-sm font-medium text-gray-700"
                           >
@@ -607,8 +621,7 @@ export default function CalendarPage() {
                             htmlFor="privacyStatus"
                             className="block text-sm font-medium text-gray-700"
                           >
-                            Privacy Status{" "}
-                            <span className="text-red-500">*</span>
+                            Privacy Status
                           </label>
                           <select
                             id="privacyStatus"
@@ -620,66 +633,54 @@ export default function CalendarPage() {
                               })
                             }
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-                            required={newPost.platform.includes("YOUTUBE")}
                           >
                             <option value="private">Private</option>
                             <option value="unlisted">Unlisted</option>
                             <option value="public">Public</option>
                           </select>
                         </div>
+                        <div>
+                          <label
+                            htmlFor="mediaUrl"
+                            className="block text-sm font-medium text-gray-700"
+                          >
+                            Video Upload
+                          </label>
+                          <input
+                            id="mediaUrl"
+                            type="file"
+                            accept="video/*"
+                            onChange={handleVideoUpload}
+                            className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                          />
+                        </div>
                       </>
                     )}
-                    <div>
-                      <label
-                        htmlFor="mediaUrl"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Media URL (required for YouTube)
-                      </label>
-                      <input
-                        id="mediaUrl"
-                        type="text"
-                        value={newPost.mediaUrl}
-                        onChange={(e) =>
-                          setNewPost({ ...newPost, mediaUrl: e.target.value })
-                        }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-                        placeholder="https://res.cloudinary.com/demo/video/upload/v1616112898/car-driving.mp4"
-                        readOnly
-                      />
-                      {newPost.platform.includes("YOUTUBE") ? (
+                    {newPost.platform
+                      .split(",")
+                      .some((p) =>
+                        ["INSTAGRAM", "LINKEDIN", "FACEBOOK"].includes(p)
+                      ) && (
+                      <div>
+                        <label htmlFor="imageUrl" className="block mb-1">
+                          Image Upload
+                        </label>
                         <input
                           type="file"
-                          accept="video/*"
-                          onChange={handleVideoUpload}
-                          className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
-                        />
-                      ) : (
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg"
+                          accept="image/*"
                           onChange={handleImageUpload}
-                          className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                          className="border p-2 w-full"
                         />
-                      )}
-                    </div>
-                    {!newPost.platform.includes("YOUTUBE") && (
-                      <div className="flex space-x-4">
-                        <button
-                          type="submit"
-                          className="inline-flex justify-center rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition duration-300"
-                        >
-                          Schedule Post
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex justify-center rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-400 transition duration-300"
-                          onClick={() => setIsAddPostOpen(false)}
-                        >
-                          Cancel
-                        </button>
                       </div>
                     )}
+                    <div className="flex space-x-4">
+                      <button
+                        type="submit"
+                        className="inline-flex justify-center rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition duration-300"
+                      >
+                        Schedule Post
+                      </button>
+                    </div>
                   </form>
                 </Dialog.Panel>
               </Transition.Child>
