@@ -1,14 +1,30 @@
-// app/youtube/Analytics/page.tsx
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useDarkMode } from '@/app/DarkModeContext';
 import { format, subDays } from 'date-fns';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, RefreshCw, Menu } from 'lucide-react';
+import TopBar from '@/components/TopBar';
+import Sidebar from '@/components/sideBar';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
-// Types
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement);
+
 type GoogleAccount = {
   id: string;
   googleEmail: string;
@@ -16,7 +32,7 @@ type GoogleAccount = {
 
 type ChannelInfo = {
   title: string;
-  thumbnails: { default?: { url: string }, medium?: { url: string }, high?: { url: string } };
+  thumbnails: { default?: { url: string }; medium?: { url: string }; high?: { url: string } };
   statistics: {
     viewCount: string;
     subscriberCount: string;
@@ -32,7 +48,7 @@ type TimeSeriesData = {
 type TopVideosData = {
   headers: { name: string; columnType: string; dataType: string }[];
   rows: (string | number)[][];
-  videoDetails: any[];
+  videoDetails: { id: string; snippet?: { title?: string; thumbnails?: { default?: { url: string } } } }[];
 };
 
 type DemographicsData = {
@@ -59,17 +75,21 @@ type AnalyticsData = {
 
 const YoutubeAnalytics = () => {
   const { data: session } = useSession();
+  const { darkMode } = useDarkMode();
   const [accounts, setAccounts] = useState<GoogleAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState({
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [dateRange, setDateRange] = useState<{
+    startDate: string;
+    endDate: string;
+  }>({
     startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd')
+    endDate: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  // Fetch Google accounts
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
@@ -77,16 +97,14 @@ const YoutubeAnalytics = () => {
         if (!response.ok) {
           throw new Error(`Error: ${response.statusText}`);
         }
-        const data = await response.json();
+        const data: { accounts?: GoogleAccount[] } = await response.json();
         setAccounts(data.accounts || []);
-        
-        // Select the first account by default if available
         if (data.accounts && data.accounts.length > 0 && !selectedAccountId) {
           setSelectedAccountId(data.accounts[0].id);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching accounts:', err);
-        setError(err.message || 'Failed to fetch accounts');
+        setError(err instanceof Error ? err.message : 'Failed to fetch accounts');
       }
     };
 
@@ -95,33 +113,32 @@ const YoutubeAnalytics = () => {
     }
   }, [session, selectedAccountId]);
 
-  // Fetch analytics data when account is selected
   useEffect(() => {
     const fetchAnalytics = async () => {
       if (!selectedAccountId) return;
-      
+
       setLoading(true);
       setError(null);
-      
+
       try {
         const queryParams = new URLSearchParams({
           accountId: selectedAccountId,
           startDate: dateRange.startDate,
-          endDate: dateRange.endDate
+          endDate: dateRange.endDate,
         });
-        
+
         const response = await fetch(`/api/youtube/analytics?${queryParams.toString()}`);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || response.statusText);
         }
-        
-        const data = await response.json();
+
+        const data: AnalyticsData = await response.json();
         setAnalyticsData(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching analytics:', err);
-        setError(err.message || 'Failed to fetch analytics data');
+        setError(err instanceof Error ? err.message : 'Failed to fetch analytics data');
       } finally {
         setLoading(false);
       }
@@ -132,40 +149,42 @@ const YoutubeAnalytics = () => {
     }
   }, [selectedAccountId, dateRange]);
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'startDate' | 'endDate') => {
-    setDateRange(prev => ({
+  const handleDateChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'startDate' | 'endDate'
+  ) => {
+    setDateRange((prev) => ({
       ...prev,
-      [field]: e.target.value
+      [field]: e.target.value,
     }));
   };
 
   const handleRefresh = () => {
     if (selectedAccountId) {
-      // Re-fetch analytics with current settings
       setLoading(true);
       setError(null);
-      
+
       const queryParams = new URLSearchParams({
         accountId: selectedAccountId,
         startDate: dateRange.startDate,
-        endDate: dateRange.endDate
+        endDate: dateRange.endDate,
       });
-      
+
       fetch(`/api/youtube/analytics?${queryParams.toString()}`)
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
-            return response.text().then(text => {
+            return response.text().then((text) => {
               throw new Error(text || response.statusText);
             });
           }
           return response.json();
         })
-        .then(data => {
+        .then((data: AnalyticsData) => {
           setAnalyticsData(data);
         })
-        .catch(err => {
+        .catch((err: unknown) => {
           console.error('Error refreshing analytics:', err);
-          setError(err.message || 'Failed to refresh analytics data');
+          setError(err instanceof Error ? err.message : 'Failed to refresh analytics data');
         })
         .finally(() => {
           setLoading(false);
@@ -173,712 +192,617 @@ const YoutubeAnalytics = () => {
     }
   };
 
-  // Render the analytics dashboard
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        title: { display: true, text: 'Date', color: darkMode ? '#F3F4F6' : '#1F2A44' },
+        ticks: { color: darkMode ? '#F3F4F6' : '#1F2A44' },
+      },
+      y: {
+        title: { display: true, color: darkMode ? '#F3F4F6' : '#1F2A44' },
+        ticks: { color: darkMode ? '#F3F4F6' : '#1F2A44' },
+        beginAtZero: true,
+      },
+    },
+    plugins: {
+      legend: { labels: { color: darkMode ? '#F3F4F6' : '#1F2A44' } },
+      tooltip: {
+        backgroundColor: darkMode ? '#1F2937' : '#FFFFFF',
+        titleColor: darkMode ? '#F3F4F6' : '#1F2A44',
+        bodyColor: darkMode ? '#F3F4F6' : '#1F2A44',
+      },
+    },
+  };
+
+  const viewsData = analyticsData?.timeSeriesData.rows.map((row) => ({
+    date: row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'day')] as string,
+    value: Number(row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'views')]),
+  })) || [];
+
+  const watchTimeData = analyticsData?.timeSeriesData.rows.map((row) => ({
+    date: row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'day')] as string,
+    value: Number(
+      row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'estimatedMinutesWatched')]
+    ),
+  })) || [];
+
+  const engagementData = analyticsData?.timeSeriesData.rows.map((row) => ({
+    date: row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'day')] as string,
+    likes: Number(row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'likes')]),
+    comments: Number(row[analyticsData.timeSeriesData.columnHeaders.findIndex((header) => header.name === 'comments')]),
+  })) || [];
+
+  const trafficSourcesData = analyticsData?.trafficSources.rows.map((row) => ({
+    source: row[
+      analyticsData.trafficSources.columnHeaders.findIndex((header) => header.name === 'insightTrafficSourceType')
+    ] as string,
+    views: Number(row[analyticsData.trafficSources.columnHeaders.findIndex((header) => header.name === 'views')]),
+  })) || [];
+
+  const demographicsData = analyticsData?.demographics.rows.reduce(
+    (acc: { age: string; male: number; female: number }[], row) => {
+      const age = row[analyticsData.demographics.columnHeaders.findIndex((header) => header.name === 'ageGroup')] as string;
+      const gender = row[analyticsData.demographics.columnHeaders.findIndex((header) => header.name === 'gender')] as string;
+      const percentage = Number(
+        row[analyticsData.demographics.columnHeaders.findIndex((header) => header.name === 'viewerPercentage')]
+      );
+      const existing = acc.find((item) => item.age === age);
+      if (existing) {
+        if (gender === 'MALE') existing.male = percentage;
+        else if (gender === 'FEMALE') existing.female = percentage;
+      } else {
+        acc.push({ age, male: gender === 'MALE' ? percentage : 0, female: gender === 'FEMALE' ? percentage : 0 });
+      }
+      return acc;
+    },
+    []
+  ) || [];
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center mb-6">
-        <Link href="/dashboard" className="mr-4">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-2xl font-bold">YouTube Analytics</h1>
-      </div>
-
-      {/* Account selection and date range controls */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center mb-4 space-y-4 md:space-y-0 md:space-x-4">
-          <div className="w-full md:w-1/3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select YouTube Account</label>
-            <select 
-              value={selectedAccountId} 
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Select an account</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.googleEmail}
-                </option>
-              ))}
-            </select>
+    <div
+      className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}
+    >
+      <TopBar />
+      <div className="flex">
+        <Sidebar isMobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <button
+          className={`lg:hidden fixed top-4 right-4 z-50 p-2 text-white bg-primaryPurple rounded-full hover:bg-highlightBlue transition-all duration-200 ${
+            isSidebarOpen ? 'hidden' : 'block'
+          }`}
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open sidebar"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+        <main className="flex-1 p-6 lg:p-8">
+          <div className="flex items-center mb-6">
+            <Link href="/analytics" className="mr-4 text-highlightBlue hover:underline" aria-label="Back to Analytics">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="text-2xl font-bold text-textBlack dark:text-white">YouTube Analytics</h1>
           </div>
-          
-          <div className="w-full md:w-1/4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Calendar className="h-5 w-5 text-gray-400" />
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center mb-4 space-y-4 md:space-y-0 md:space-x-4">
+              <div className="w-full md:w-1/3">
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-1">
+                  Select YouTube Account
+                </label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                  aria-label="Select YouTube account"
+                >
+                  <option value="">Select an account</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.googleEmail}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <input
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => handleDateChange(e, 'startDate')}
-                className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          </div>
-          
-          <div className="w-full md:w-1/4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Calendar className="h-5 w-5 text-gray-400" />
+
+              <div className="w-full md:w-1/4">
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-1">
+                  Start Date
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => handleDateChange(e, 'startDate')}
+                    className="block w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                    aria-label="Start date"
+                  />
+                </div>
               </div>
-              <input
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => handleDateChange(e, 'endDate')}
-                className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          </div>
-          
-          <div className="w-full md:w-auto mt-4 md:mt-6">
-            <button
-              onClick={handleRefresh}
-              disabled={loading || !selectedAccountId}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-          <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm text-red-700">
-                {error}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="w-full md:w-1/4">
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-1">
+                  End Date
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => handleDateChange(e, 'endDate')}
+                    className="block w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                    aria-label="End date"
+                  />
+                </div>
+              </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        </div>
-      )}
-
-      {/* Analytics Dashboard */}
-      {!loading && analyticsData && (
-        <div className="space-y-6">
-          {/* Channel Overview */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Channel Overview</h2>
-              <div className="flex flex-col md:flex-row">
-                <div className="flex items-center mb-4 md:mb-0 md:mr-8">
-                  {analyticsData.channelInfo.thumbnails?.default?.url && (
-                    <img 
-                      src={analyticsData.channelInfo.thumbnails.default.url} 
-                      alt="Channel thumbnail" 
-                      className="w-16 h-16 rounded-full mr-4"
-                    />
+              <div className="w-full md:w-auto mt-4 md:mt-6">
+                <button
+                  onClick={handleRefresh}
+                  disabled={loading || !selectedAccountId}
+                  className="inline-flex items-center px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200 disabled:opacity-50"
+                  aria-label="Refresh analytics"
+                >
+                  {loading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
                   )}
-                  <div>
-                    <h3 className="font-bold text-lg">{analyticsData.channelInfo.title}</h3>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Total Views</p>
-                    <p className="text-2xl font-bold">
-                      {Number(analyticsData.channelInfo.statistics.viewCount).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Subscribers</p>
-                    <p className="text-2xl font-bold">
-                      {Number(analyticsData.channelInfo.statistics.subscriberCount).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Videos</p>
-                    <p className="text-2xl font-bold">
-                      {Number(analyticsData.channelInfo.statistics.videoCount).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+                  Refresh
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Views Graph */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Views Over Time</h2>
-            <div className="h-80">
-              <TimeSeriesChart 
-                data={analyticsData.timeSeriesData} 
-                metric="views" 
-              />
-            </div>
-          </div>
-
-          {/* Watch Time Graph */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Watch Time (minutes)</h2>
-            <div className="h-80">
-              <TimeSeriesChart 
-                data={analyticsData.timeSeriesData} 
-                metric="estimatedMinutesWatched" 
-              />
-            </div>
-          </div>
-
-          {/* Engagement (Likes, Comments) */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Engagement</h2>
-            <div className="h-80">
-              <EngagementChart 
-                data={analyticsData.timeSeriesData} 
-              />
-            </div>
-          </div>
-
-          {/* Top Videos */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Top Videos</h2>
-            <div className="overflow-x-auto">
-              <TopVideosTable data={analyticsData.topVideos} />
-            </div>
-          </div>
-
-          {/* Traffic Sources */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Traffic Sources</h2>
-            <div className="h-80">
-              <TrafficSourcesChart data={analyticsData.trafficSources} />
-            </div>
-          </div>
-
-          {/* Demographics */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Audience Demographics</h2>
-            <div className="h-80">
-              {analyticsData.demographics.rows && analyticsData.demographics.rows.length > 0 ? (
-                <DemographicsChart data={analyticsData.demographics} />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500">Demographics data not available for this channel</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* No account selected */}
-      {!selectedAccountId && !loading && (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <h2 className="text-xl font-semibold mb-2">Select a YouTube Account</h2>
-          <p className="text-gray-600 mb-4">
-            Choose a connected YouTube account to view analytics data
-          </p>
-          {accounts.length === 0 && (
-            <div className="mt-4">
-              <p className="text-gray-600 mb-2">No YouTube accounts connected</p>
-              <Link href="/dashboard/connect">
-                <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                  Connect YouTube Account
-                </button>
-              </Link>
+          {error && (
+            <div className="bg-red-100 dark:bg-red-900 border-l-4 border-primaryRed text-primaryRed dark:text-red-200 px-4 py-3 rounded-2xl mb-6">
+              {error}
             </div>
           )}
-        </div>
-      )}
+
+          {loading && (
+            <div className="flex justify-center items-center h-64">
+              <LoadingSpinner size="lg" className="text-primaryPurple" />
+            </div>
+          )}
+
+          {!loading && analyticsData && (
+            <div className="space-y-8">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">Channel Overview</h2>
+                <div className="flex flex-col md:flex-row">
+                  <div className="flex items-center mb-4 md:mb-0 md:mr-8">
+                    {analyticsData.channelInfo.thumbnails?.default?.url && (
+                      <img
+                        src={analyticsData.channelInfo.thumbnails.default.url}
+                        alt="Channel thumbnail"
+                        className="w-16 h-16 rounded-full mr-4"
+                      />
+                    )}
+                    <div>
+                      <h3 className="font-bold text-lg text-textBlack dark:text-white">
+                        {analyticsData.channelInfo.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Total Views</p>
+                      <p className="text-2xl font-bold text-textBlack dark:text-white">
+                        {Number(analyticsData.channelInfo.statistics.viewCount).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Subscribers</p>
+                      <p className="text-2xl font-bold text-textBlack dark:text-white">
+                        {Number(analyticsData.channelInfo.statistics.subscriberCount).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Videos</p>
+                      <p className="text-2xl font-bold text-textBlack dark:text-white">
+                        {Number(analyticsData.channelInfo.statistics.videoCount).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">Views Over Time</h2>
+                <div className="h-80">
+                  <Line
+                    data={{
+                      labels: viewsData.map((item) => item.date),
+                      datasets: [
+                        {
+                          label: 'Views',
+                          data: viewsData.map((item) => item.value),
+                          borderColor: '#3B82F6',
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          fill: true,
+                          tension: 0.3,
+                        },
+                      ],
+                    }}
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: { ...chartOptions.scales.y.title, text: 'Views' },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">
+                  Watch Time (minutes)
+                </h2>
+                <div className="h-80">
+                  <Line
+                    data={{
+                      labels: watchTimeData.map((item) => item.date),
+                      datasets: [
+                        {
+                          label: 'Watch Time (minutes)',
+                          data: watchTimeData.map((item) => item.value),
+                          borderColor: '#9C27B0',
+                          backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                          fill: true,
+                          tension: 0.3,
+                        },
+                      ],
+                    }}
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: { ...chartOptions.scales.y.title, text: 'Minutes' },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">Engagement</h2>
+                <div className="h-80">
+                  <Bar
+                    data={{
+                      labels: engagementData.map((item) => item.date),
+                      datasets: [
+                        {
+                          label: 'Likes',
+                          data: engagementData.map((item) => item.likes),
+                          backgroundColor: '#3B82F6',
+                          borderColor: '#1E40AF',
+                          borderWidth: 1,
+                        },
+                        {
+                          label: 'Comments',
+                          data: engagementData.map((item) => item.comments),
+                          backgroundColor: '#9C27B0',
+                          borderColor: '#6B21A8',
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: { ...chartOptions.scales.y.title, text: 'Count' },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">Top Videos</h2>
+                <div className="overflow-x-auto">
+                  <TopVideosTable data={analyticsData.topVideos} />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">Traffic Sources</h2>
+                <div className="h-80">
+                  <Doughnut
+                    data={{
+                      labels: trafficSourcesData.map((item) => {
+                        switch (item.source) {
+                          case 'EXT_URL':
+                            return 'External';
+                          case 'YT_SEARCH':
+                            return 'YouTube Search';
+                          case 'RELATED_VIDEO':
+                            return 'Related Videos';
+                          case 'SUBSCRIBER':
+                            return 'Subscribers';
+                          case 'PLAYLIST':
+                            return 'Playlists';
+                          case 'NOTIFICATION':
+                            return 'Notifications';
+                          case 'SOCIAL':
+                            return 'Social Media';
+                          case 'CHANNEL':
+                            return 'Channel Page';
+                          case 'BROWSE_FEATURES':
+                            return 'Browse Features';
+                          case 'DIRECT_OR_UNKNOWN':
+                            return 'Direct/Unknown';
+                          default:
+                            return item.source;
+                        }
+                      }),
+                      datasets: [
+                        {
+                          data: trafficSourcesData.map((item) => item.views),
+                          backgroundColor: [
+                            '#E63946',
+                            '#3B82F6',
+                            '#9C27B0',
+                            '#FBBF24',
+                            '#6B7280',
+                            '#10B981',
+                            '#F87171',
+                            '#60A5FA',
+                            '#A855F7',
+                            '#F4B400',
+                          ],
+                          borderColor: [
+                            '#B91C1C',
+                            '#1E40AF',
+                            '#6B21A8',
+                            '#D97706',
+                            '#4B5563',
+                            '#059669',
+                            '#B91C1C',
+                            '#1E40AF',
+                            '#6B21A8',
+                            '#D97706',
+                          ],
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'right',
+                          labels: { color: darkMode ? '#F3F4F6' : '#1F2A44' },
+                        },
+                        tooltip: {
+                          backgroundColor: darkMode ? '#1F2937' : '#FFFFFF',
+                          titleColor: darkMode ? '#F3F4F6' : '#1F2A44',
+                          bodyColor: darkMode ? '#F3F4F6' : '#1F2A44',
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">
+                  Audience Demographics
+                </h2>
+                <div className="h-80">
+                  {analyticsData.demographics.rows && analyticsData.demographics.rows.length > 0 ? (
+                    <Bar
+                      data={{
+                        labels: demographicsData
+                          .map((item) => item.age)
+                          .sort((a, b) => a.replace('AGE_', '').localeCompare(b.replace('AGE_', '')))
+                          .map((age) => {
+                            switch (age) {
+                              case 'AGE_13_17':
+                                return '13-17';
+                              case 'AGE_18_24':
+                                return '18-24';
+                              case 'AGE_25_34':
+                                return '25-34';
+                              case 'AGE_35_44':
+                                return '35-44';
+                              case 'AGE_45_54':
+                                return '45-54';
+                              case 'AGE_55_64':
+                                return '55-64';
+                              case 'AGE_65_':
+                                return '65+';
+                              default:
+                                return age;
+                            }
+                          }),
+                        datasets: [
+                          {
+                            label: 'Male',
+                            data: demographicsData
+                              .sort((a, b) => a.age.replace('AGE_', '').localeCompare(b.age.replace('AGE_', '')))
+                              .map((item) => item.male),
+                            backgroundColor: '#3B82F6',
+                            borderColor: '#1E40AF',
+                            borderWidth: 1,
+                          },
+                          {
+                            label: 'Female',
+                            data: demographicsData
+                              .sort((a, b) => a.age.replace('AGE_', '').localeCompare(b.age.replace('AGE_', '')))
+                              .map((item) => item.female),
+                            backgroundColor: '#E63946',
+                            borderColor: '#B91C1C',
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        ...chartOptions,
+                        scales: {
+                          ...chartOptions.scales,
+                          x: {
+                            ...chartOptions.scales.x,
+                            title: { ...chartOptions.scales.x.title, text: 'Age Group' },
+                          },
+                          y: {
+                            ...chartOptions.scales.y,
+                            title: { ...chartOptions.scales.y.title, text: 'Percentage (%)' },
+                          },
+                        },
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Demographics data not available for this channel
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!selectedAccountId && !loading && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
+              <h2 className="text-xl font-semibold mb-2 text-textBlack dark:text-white">
+                Select a YouTube Account
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Choose a connected YouTube account to view analytics data
+              </p>
+              {accounts.length === 0 && (
+                <div className="mt-4">
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">No YouTube accounts connected</p>
+                  <Link href="/connect-google">
+                    <button
+                      className="inline-flex items-center px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200"
+                      aria-label="Connect YouTube account"
+                    >
+                      Connect YouTube Account
+                    </button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 };
 
-// Time Series Chart Component for views and watch time
-const TimeSeriesChart = ({ data, metric }: { data: TimeSeriesData, metric: string }) => {
-  useEffect(() => {
-    if (!data || !data.rows || !data.columnHeaders) return;
-    
-    // Find indices for date and the requested metric
-    const dateIndex = data.columnHeaders.findIndex(header => header.name === 'day');
-    const metricIndex = data.columnHeaders.findIndex(header => header.name === metric);
-    
-    if (dateIndex === -1 || metricIndex === -1) return;
-    
-    // Extract data
-    const chartData = data.rows.map(row => ({
-      date: row[dateIndex] as string,
-      value: Number(row[metricIndex])
-    }));
-    
-    // Set up the chart using HTML
-    renderTimeSeriesChart(chartData, metric);
-  }, [data, metric]);
-
-  // Function to render chart using Canvas and Chart.js concepts
-  const renderTimeSeriesChart = (chartData: {date: string, value: number}[], metric: string) => {
-    const container = document.getElementById(`time-series-${metric}`);
-    if (!container) return;
-    
-    // Clear any existing content
-    container.innerHTML = '';
-    
-    // For the standalone page, we'll create a simple representation
-    const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
-    
-    // Include script tag for Chart.js (in a real app, you'd include this in your HTML)
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => {
-      // @ts-ignore - Chart would be available in the window object
-      const ctx = canvas.getContext('2d');
-      
-      // @ts-ignore - Chart would be available in the window object
-      new window.Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: chartData.map(item => item.date),
-          datasets: [{
-            label: metric === 'views' ? 'Views' : 'Watch Time (minutes)',
-            data: chartData.map(item => item.value),
-            borderColor: metric === 'views' ? 'rgb(59, 130, 246)' : 'rgb(16, 185, 129)',
-            backgroundColor: metric === 'views' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Date'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: metric === 'views' ? 'Views' : 'Minutes'
-              },
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    };
-    document.body.appendChild(script);
-  };
-
-  return <div id={`time-series-${metric}`} className="w-full h-full"></div>;
-};
-
-// Engagement Chart Component (Likes, Comments)
-const EngagementChart = ({ data }: { data: TimeSeriesData }) => {
-  useEffect(() => {
-    if (!data || !data.rows || !data.columnHeaders) return;
-    
-    // Find indices for date, likes, and comments
-    const dateIndex = data.columnHeaders.findIndex(header => header.name === 'day');
-    const likesIndex = data.columnHeaders.findIndex(header => header.name === 'likes');
-    const commentsIndex = data.columnHeaders.findIndex(header => header.name === 'comments');
-    
-    if (dateIndex === -1 || likesIndex === -1 || commentsIndex === -1) return;
-    
-    // Extract data
-    const chartData = data.rows.map(row => ({
-      date: row[dateIndex] as string,
-      likes: Number(row[likesIndex]),
-      comments: Number(row[commentsIndex])
-    }));
-    
-    // Set up the chart using HTML
-    renderEngagementChart(chartData);
-  }, [data]);
-
-  // Function to render chart using Canvas and Chart.js concepts
-  const renderEngagementChart = (chartData: {date: string, likes: number, comments: number}[]) => {
-    const container = document.getElementById('engagement-chart');
-    if (!container) return;
-    
-    // Clear any existing content
-    container.innerHTML = '';
-    
-    // For the standalone page, we'll create a simple representation
-    const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
-    
-    // Include script tag for Chart.js (in a real app, you'd include this in your HTML)
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => {
-      // @ts-ignore - Chart would be available in the window object
-      const ctx = canvas.getContext('2d');
-      
-      // @ts-ignore - Chart would be available in the window object
-      new window.Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: chartData.map(item => item.date),
-          datasets: [
-            {
-              label: 'Likes',
-              data: chartData.map(item => item.likes),
-              backgroundColor: 'rgba(99, 102, 241, 0.7)',
-              borderColor: 'rgb(99, 102, 241)',
-              borderWidth: 1
-            },
-            {
-              label: 'Comments',
-              data: chartData.map(item => item.comments),
-              backgroundColor: 'rgba(244, 114, 182, 0.7)',
-              borderColor: 'rgb(244, 114, 182)',
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Date'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Count'
-              },
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    };
-    document.body.appendChild(script);
-  };
-
-  return <div id="engagement-chart" className="w-full h-full"></div>;
-};
-
-// Traffic Sources Chart
-const TrafficSourcesChart = ({ data }: { data: TrafficSourcesData }) => {
-  useEffect(() => {
-    if (!data || !data.rows || !data.columnHeaders) return;
-    
-    // Find indices for traffic source and views
-    const sourceIndex = data.columnHeaders.findIndex(header => header.name === 'insightTrafficSourceType');
-    const viewsIndex = data.columnHeaders.findIndex(header => header.name === 'views');
-    
-    if (sourceIndex === -1 || viewsIndex === -1) return;
-    
-    // Extract data
-    const chartData = data.rows.map(row => ({
-      source: row[sourceIndex] as string,
-      views: Number(row[viewsIndex])
-    }));
-    
-    // Set up the chart using HTML
-    renderTrafficSourcesChart(chartData);
-  }, [data]);
-
-  // Function to render chart using Canvas and Chart.js concepts
-  const renderTrafficSourcesChart = (chartData: {source: string, views: number}[]) => {
-    const container = document.getElementById('traffic-sources-chart');
-    if (!container) return;
-    
-    // Clear any existing content
-    container.innerHTML = '';
-    
-    // For the standalone page, we'll create a simple representation
-    const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
-    
-    // Include script tag for Chart.js (in a real app, you'd include this in your HTML)
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => {
-      // @ts-ignore - Chart would be available in the window object
-      const ctx = canvas.getContext('2d');
-      
-      // Map traffic source names to more readable names
-      const sourceLabels = chartData.map(item => {
-        switch(item.source) {
-          case 'EXT_URL': return 'External';
-          case 'YT_SEARCH': return 'YouTube Search';
-          case 'RELATED_VIDEO': return 'Related Videos';
-          case 'SUBSCRIBER': return 'Subscribers';
-          case 'PLAYLIST': return 'Playlists';
-          case 'NOTIFICATION': return 'Notifications';
-          case 'SOCIAL': return 'Social Media';
-          case 'CHANNEL': return 'Channel Page';
-          case 'BROWSE_FEATURES': return 'Browse Features';
-          case 'DIRECT_OR_UNKNOWN': return 'Direct/Unknown';
-          default: return item.source;
-        }
-      });
-      
-      // @ts-ignore - Chart would be available in the window object
-      new window.Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: sourceLabels,
-          datasets: [{
-            data: chartData.map(item => item.views),
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.7)',
-              'rgba(54, 162, 235, 0.7)',
-              'rgba(255, 206, 86, 0.7)',
-              'rgba(75, 192, 192, 0.7)',
-              'rgba(153, 102, 255, 0.7)',
-              'rgba(255, 159, 64, 0.7)',
-              'rgba(199, 199, 199, 0.7)',
-              'rgba(83, 102, 255, 0.7)',
-              'rgba(40, 159, 64, 0.7)',
-              'rgba(210, 199, 199, 0.7)',
-            ],
-            borderColor: [
-              'rgb(255, 99, 132)',
-              'rgb(54, 162, 235)',
-              'rgb(255, 206, 86)',
-              'rgb(75, 192, 192)',
-              'rgb(153, 102, 255)',
-              'rgb(255, 159, 64)',
-              'rgb(199, 199, 199)',
-              'rgb(83, 102, 255)',
-              'rgb(40, 159, 64)',
-              'rgb(210, 199, 199)',
-            ],
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'right',
-            }
-          }
-        }
-      });
-    };
-    document.body.appendChild(script);
-  };
-
-  return <div id="traffic-sources-chart" className="w-full h-full"></div>;
-};
-
-// Demographics Chart
-const DemographicsChart = ({ data }: { data: DemographicsData }) => {
-  useEffect(() => {
-    if (!data || !data.rows || !data.columnHeaders) return;
-    
-    // Find indices for age group, gender, and percentage
-    const ageIndex = data.columnHeaders.findIndex(header => header.name === 'ageGroup');
-    const genderIndex = data.columnHeaders.findIndex(header => header.name === 'gender');
-    const percentageIndex = data.columnHeaders.findIndex(header => header.name === 'viewerPercentage');
-    
-    if (ageIndex === -1 || genderIndex === -1 || percentageIndex === -1) return;
-    
-    // Extract and organize data
-    const maleData: Record<string, number> = {};
-    const femaleData: Record<string, number> = {};
-    
-    data.rows.forEach(row => {
-      const age = row[ageIndex] as string;
-      const gender = row[genderIndex] as string;
-      const percentage = Number(row[percentageIndex]);
-      
-      if (gender === 'FEMALE') {
-        femaleData[age] = percentage;
-      } else if (gender === 'MALE') {
-        maleData[age] = percentage;
-      }
-    });
-    
-    // Set up the chart using HTML
-    renderDemographicsChart(maleData, femaleData);
-  }, [data]);
-
-  // Function to render chart using Canvas and Chart.js concepts
-  const renderDemographicsChart = (maleData: Record<string, number>, femaleData: Record<string, number>) => {
-    const container = document.getElementById('demographics-chart');
-    if (!container) return;
-    
-    // Clear any existing content
-    container.innerHTML = '';
-    
-    // For the standalone page, we'll create a simple representation
-    const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
-    
-    // Include script tag for Chart.js (in a real app, you'd include this in your HTML)
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => {
-      // @ts-ignore - Chart would be available in the window object
-      const ctx = canvas.getContext('2d');
-      
-      // Get all age groups and sort them in order
-      const allAgeGroups = Array.from(
-        new Set([...Object.keys(maleData), ...Object.keys(femaleData)])
-      ).sort((a, b) => {
-        const ageA = a.replace('AGE_', '');
-        const ageB = b.replace('AGE_', '');
-        return ageA.localeCompare(ageB);
-      });
-      
-      // Map age group codes to readable labels
-      const ageLabels = allAgeGroups.map(age => {
-        switch(age) {
-          case 'AGE_13_17': return '13-17';
-          case 'AGE_18_24': return '18-24';
-          case 'AGE_25_34': return '25-34';
-          case 'AGE_35_44': return '35-44';
-          case 'AGE_45_54': return '45-54';
-          case 'AGE_55_64': return '55-64';
-          case 'AGE_65_': return '65+';
-          default: return age;
-        }
-      });
-      
-      // @ts-ignore - Chart would be available in the window object
-      new window.Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ageLabels,
-          datasets: [
-            {
-              label: 'Male',
-              data: allAgeGroups.map(age => maleData[age] || 0),
-              backgroundColor: 'rgba(54, 162, 235, 0.7)',
-              borderColor: 'rgb(54, 162, 235)',
-              borderWidth: 1
-            },
-            {
-              label: 'Female',
-              data: allAgeGroups.map(age => femaleData[age] || 0),
-              backgroundColor: 'rgba(255, 99, 132, 0.7)',
-              borderColor: 'rgb(255, 99, 132)',
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Age Group'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Percentage (%)'
-              },
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    };
-    document.body.appendChild(script);
-  };
-
-  return <div id="demographics-chart" className="w-full h-full"></div>;
-};
-
-// Top Videos Table
 const TopVideosTable = ({ data }: { data: TopVideosData }) => {
-  // Find indices for video ID, views, watch time, likes, and comments
-  const videoIndex = data.headers ? data.headers.findIndex(header => header.name === 'video') : -1;
-  const viewsIndex = data.headers ? data.headers.findIndex(header => header.name === 'views') : -1;
-  const watchTimeIndex = data.headers ? data.headers.findIndex(header => header.name === 'estimatedMinutesWatched') : -1;
-  const likesIndex = data.headers ? data.headers.findIndex(header => header.name === 'likes') : -1;
-  const commentsIndex = data.headers ? data.headers.findIndex(header => header.name === 'comments') : -1;
+  const { darkMode } = useDarkMode();
+  const videoIndex = data.headers ? data.headers.findIndex((header) => header.name === 'video') : -1;
+  const viewsIndex = data.headers ? data.headers.findIndex((header) => header.name === 'views') : -1;
+  const watchTimeIndex = data.headers
+    ? data.headers.findIndex((header) => header.name === 'estimatedMinutesWatched')
+    : -1;
+  const likesIndex = data.headers ? data.headers.findIndex((header) => header.name === 'likes') : -1;
+  const commentsIndex = data.headers
+    ? data.headers.findIndex((header) => header.name === 'comments')
+    : -1;
 
   if (videoIndex === -1 || viewsIndex === -1 || !data.rows || data.rows.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No video data available</p>
+        <p className="text-gray-500 dark:text-gray-400">No video data available</p>
       </div>
     );
   }
 
-  // Helper function to find video details by ID
   const getVideoDetails = (videoId: string) => {
-    if (!data.videoDetails) return null;
-    return data.videoDetails.find(video => video.id === videoId);
+    return data.videoDetails?.find((video) => video.id === videoId) || null;
   };
 
   return (
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+      <thead className="bg-gray-50 dark:bg-gray-700">
         <tr>
-          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          >
             Video
           </th>
-          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          >
             Views
           </th>
           {watchTimeIndex !== -1 && (
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
               Watch Time (min)
             </th>
           )}
           {likesIndex !== -1 && (
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
               Likes
             </th>
           )}
           {commentsIndex !== -1 && (
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
               Comments
             </th>
           )}
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
+      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
         {data.rows.map((row, index) => {
           const videoId = row[videoIndex] as string;
           const videoDetails = getVideoDetails(videoId);
-          
+
           return (
             <tr key={index}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   {videoDetails && videoDetails.snippet?.thumbnails?.default?.url && (
-                    <img 
-                      src={videoDetails.snippet.thumbnails.default.url} 
-                      alt="Video thumbnail" 
+                    <img
+                      src={videoDetails.snippet.thumbnails.default.url}
+                      alt="Video thumbnail"
                       className="h-10 w-16 object-cover mr-3"
                     />
                   )}
                   <div className="ml-4">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-textBlack dark:text-white">
                       {videoDetails ? videoDetails.snippet?.title : videoId}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      <a 
-                        href={`https://www.youtube.com/watch?v=${videoId}`} 
-                        target="_blank" 
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <a
+                        href={`https://www.youtube.com/watch?v=${videoId}`}
+                        target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
+                        className="text-highlightBlue hover:underline"
+                        aria-label={`View video ${videoDetails?.snippet?.title || videoId} on YouTube`}
                       >
                         View on YouTube
                       </a>
@@ -886,21 +810,21 @@ const TopVideosTable = ({ data }: { data: TopVideosData }) => {
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-textBlack dark:text-white">
                 {Number(row[viewsIndex]).toLocaleString()}
               </td>
               {watchTimeIndex !== -1 && (
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-textBlack dark:text-white">
                   {Number(row[watchTimeIndex]).toLocaleString()}
                 </td>
               )}
               {likesIndex !== -1 && (
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-textBlack dark:text-white">
                   {Number(row[likesIndex]).toLocaleString()}
                 </td>
               )}
               {commentsIndex !== -1 && (
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-textBlack dark:text-white">
                   {Number(row[commentsIndex]).toLocaleString()}
                 </td>
               )}

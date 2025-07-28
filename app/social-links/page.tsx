@@ -3,6 +3,10 @@
 import { JSX, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaYoutube, FaFacebook, FaTumblr, FaPinterest, FaTwitter } from "react-icons/fa";
+import TopBar from '@/components/TopBar';
+import Sidebar from '@/components/sideBar';
+import { Menu } from 'lucide-react';
+import { useDarkMode } from '@/app/DarkModeContext';
 
 interface SocialMedia {
   name: string;
@@ -11,8 +15,10 @@ interface SocialMedia {
 }
 
 export default function SocialLinks() {
+  const { darkMode } = useDarkMode();
   const router = useRouter();
   const [selectedSocials, setSelectedSocials] = useState<string[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const socialMedia: SocialMedia[] = [
     {
@@ -65,42 +71,59 @@ export default function SocialLinks() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl">
-        <h2 className="text-2xl font-bold mb-6 text-center text-textBlack">
-          Select Social Media Platforms
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {socialMedia.map((social) => (
-            <div key={social.name} className="flex flex-col items-center">
-              <label className="flex flex-col items-center justify-center p-4 bg-white hover:bg-gradient-to-br hover:from-primaryRed/30 hover:from-20% hover:to-primaryPurple/30 hover:to-100% rounded-lg shadow hover:shadow-xl transition w-full cursor-pointer">
-                <div className="flex items-center space-x-4">
-                  {social.icon}
-                  <span className="text-lg font-semibold text-textBlack">{social.name}</span>
-                  <input
-                    type="checkbox"
-                    checked={selectedSocials.includes(social.name)}
-                    onChange={() => handleCheckboxChange(social.name)}
-                    className="h-5 w-5 text-blue-600 focus:ring-blue-500"
-                  />
-                </div>
-              </label>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
+      <TopBar />
+      <div className="flex">
+        <Sidebar isMobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <button
+          className={`lg:hidden fixed top-4 right-4 z-50 p-2 text-white bg-primaryPurple rounded-full hover:bg-highlightBlue transition-all duration-200 ${isSidebarOpen ? 'hidden' : 'block'}`}
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open sidebar"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+        <main className="flex-1 p-6 lg:pl-8 lg:pt-8">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-3xl font-bold text-textBlack dark:text-white mb-6">
+              Select Social Media Platforms
+            </h1>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {socialMedia.map((social) => (
+                  <div key={social.name} className="flex flex-col items-center">
+                    <label className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-xl hover:bg-gradient-to-br hover:from-primaryRed/20 hover:to-primaryPurple/20 transition-all duration-200 w-full cursor-pointer">
+                      <div className="flex items-center space-x-4">
+                        {social.icon}
+                        <span className="text-lg font-semibold text-textBlack dark:text-white">{social.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedSocials.includes(social.name)}
+                          onChange={() => handleCheckboxChange(social.name)}
+                          className="h-5 w-5 text-highlightBlue focus:ring-highlightBlue rounded"
+                          aria-label={`Select ${social.name}`}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={handleOpenTabs}
+                  disabled={selectedSocials.length === 0}
+                  className={`w-full sm:w-auto px-6 py-3 rounded-lg text-white font-semibold transition-all duration-200 ${
+                    selectedSocials.length === 0
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-primaryPurple hover:bg-highlightBlue hover:shadow-md'
+                  }`}
+                  aria-label="Connect to selected platforms"
+                >
+                  Connect to Selected Platforms
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={handleOpenTabs}
-            disabled={selectedSocials.length === 0}
-            className={`px-6 py-3 rounded-lg text-white font-semibold transition ${
-              selectedSocials.length === 0
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            Connect to Selected Platforms
-          </button>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

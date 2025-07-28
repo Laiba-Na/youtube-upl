@@ -1,10 +1,11 @@
-// app/POST_CATALOG/add/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useDarkMode } from '@/app/DarkModeContext';
+
+import { Menu } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -14,6 +15,7 @@ interface Project {
 
 export default function AddPostPage() {
   const { data: session, status } = useSession();
+  const { darkMode } = useDarkMode();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedImage, setSelectedImage] = useState<{ type: string; url: string; projectId?: string } | null>(null);
@@ -21,6 +23,7 @@ export default function AddPostPage() {
   const [description, setDescription] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -103,77 +106,139 @@ export default function AddPostPage() {
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Add New Post</h1>
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold mb-2">Select Image Source</h2>
-        <div className="mb-2">
-          <label className="block mb-1">Upload New Image</label>
-          <input type="file" accept="image/*" onChange={handleUpload} className="border p-2 w-full" />
-        </div>
-        <div>
-          <label className="block mb-1">Select from Existing Projects</label>
-          {loadingProjects ? (
-            <p>Loading projects...</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="border p-2 cursor-pointer"
-                  onClick={() => handleSelectProject(project)}
-                >
-                  {project.thumbnail ? (
-                    <img src={project.thumbnail} alt={project.name} className="w-full h-32 object-cover mb-2" />
-                  ) : (
-                    <div className="w-full h-32 bg-gray-200 flex items-center justify-center">No thumbnail</div>
-                  )}
-                  <p className="text-sm">{project.name}</p>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
+      
+      <div className="flex">
+        
+        
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 lg:p-8">
+          <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+            <h1 className="text-3xl font-bold text-textBlack dark:text-white mb-6">Add New Post</h1>
+
+            {/* Image Source Section */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-textBlack dark:text-white mb-4">Select Image Source</h2>
+              <div className="space-y-6">
+                {/* Upload New Image */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-textBlack dark:text-gray-200">
+                    Upload New Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUpload}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primaryPurple file:text-white hover:file:bg-highlightBlue transition-all duration-200"
+                    aria-label="Upload new image"
+                  />
                 </div>
-              ))}
+
+                {/* Existing Projects */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-textBlack dark:text-gray-200">
+                    Select from Existing Projects
+                  </label>
+                  {loadingProjects ? (
+                    <div className="flex justify-center items-center h-32">
+                      <svg className="animate-spin h-8 w-8 text-primaryPurple" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {projects.map((project) => (
+                        <div
+                          key={project.id}
+                          className="group bg-gray-100 dark:bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 hover:shadow-md transition-all duration-200"
+                          onClick={() => handleSelectProject(project)}
+                          role="button"
+                          aria-label={`Select project ${project.name}`}
+                        >
+                          {project.thumbnail ? (
+                            <img
+                              src={project.thumbnail}
+                              alt={project.name}
+                              className="w-full h-32 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform duration-200"
+                            />
+                          ) : (
+                            <div className="w-full h-32 bg-gray-300 dark:bg-gray-600 flex items-center justify-center rounded-lg mb-2">
+                              <span className="text-gray-500 dark:text-gray-400">No thumbnail</span>
+                            </div>
+                          )}
+                          <p className="text-sm font-medium text-textBlack dark:text-white truncate">{project.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Image Preview */}
+            {selectedImage && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-textBlack dark:text-white mb-4">Preview</h2>
+                <img
+                  src={selectedImage.url}
+                  alt="Selected preview"
+                  className="w-64 h-64 object-cover rounded-lg shadow-md"
+                />
+              </div>
+            )}
+
+            {/* Post Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block mb-2 text-sm font-medium text-textBlack dark:text-gray-200">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue focus:outline-none transition-all duration-200"
+                  required
+                  aria-label="Post title"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 text-sm font-medium text-textBlack dark:text-gray-200">
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue focus:outline-none transition-all duration-200"
+                  rows={4}
+                  aria-label="Post description"
+                />
+              </div>
+              <div>
+                <label className="block mb-2 text-sm font-medium text-textBlack dark:text-gray-200">
+                  Hashtags (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={hashtags}
+                  onChange={(e) => setHashtags(e.target.value)}
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue focus:outline-none transition-all duration-200"
+                  aria-label="Post hashtags"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-3 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200"
+                aria-label="Create post"
+              >
+                Create Post
+              </button>
+            </form>
+          </div>
+        </main>
       </div>
-      {selectedImage && (
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold mb-2">Preview</h2>
-          <img src={selectedImage.url} alt="Selected" className="w-64 h-64 object-cover" />
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block mb-1">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="border p-2 w-full"
-            required
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="border p-2 w-full"
-            rows={4}
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Hashtags (comma-separated)</label>
-          <input
-            type="text"
-            value={hashtags}
-            onChange={(e) => setHashtags(e.target.value)}
-            className="border p-2 w-full"
-          />
-        </div>
-        <button type="submit" className="bg-blue-500 text-white p-2 rounded">
-          Create Post
-        </button>
-      </form>
     </div>
   );
 }

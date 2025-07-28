@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useDarkMode } from "@/app/DarkModeContext";
 
 export default function Register() {
   const router = useRouter();
+  const { darkMode } = useDarkMode();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -27,19 +29,16 @@ export default function Register() {
     let isValid = true;
     const newErrors = { name: "", email: "", password: "", general: "" };
 
-    // Name validation
     if (!formData.name || formData.name.length < 2 || !/^[a-zA-Z\s]+$/.test(formData.name)) {
       newErrors.name = "Name must be at least 2 characters long and contain only letters and spaces";
       isValid = false;
     }
 
-    // Email validation
     if (!formData.email || !emailRegex.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
       isValid = false;
     }
 
-    // Password validation
     if (!formData.password || !passwordRegex.test(formData.password)) {
       newErrors.password =
         "Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character";
@@ -55,7 +54,6 @@ export default function Register() {
     setIsLoading(true);
     setErrors({ name: "", email: "", password: "", general: "" });
 
-    // Perform client-side validation
     if (!validateForm()) {
       setIsLoading(false);
       return;
@@ -88,23 +86,21 @@ export default function Register() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Clear specific field error when user starts typing
     setErrors((prev) => ({ ...prev, [name]: "", general: "" }));
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       {/* Left side (Welcome Back) */}
-      <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center bg-gradient-to-br from-primaryPurple to-primaryRed p-8 text-white">
-        <h2 className="text-3xl font-bold mb-4">Welcome Back</h2>
-        <p className="max-w-sm text-center">
-          To keep connected with us please login with your personal info
+      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center bg-gradient-to-br from-primaryPurple to-primaryRed p-8 text-white">
+        <h2 className="text-4xl font-bold mb-6 animate-fade-in-up">Welcome Back</h2>
+        <p className="max-w-md text-center text-lg opacity-90">
+          Already have an account? Sign in to manage and schedule your social media posts with ease.
         </p>
-        <Link href="/login" className="mt-6">
+        <Link href="/login" className="mt-8">
           <button
             type="button"
-            className="px-6 py-2 border border-white rounded-full hover:bg-white hover:text-primaryPurple transition-colors"
+            className="px-8 py-3 border-2 border-white rounded-full text-lg font-semibold hover:bg-white hover:text-primaryPurple transition-colors duration-300 shadow-md hover:shadow-lg"
           >
             Sign In
           </button>
@@ -112,121 +108,124 @@ export default function Register() {
       </div>
 
       {/* Right side (Create Account) */}
-      <div className="flex flex-col justify-center items-center w-full md:w-1/2 bg-white p-6 sm:p-12">
-        <div className="flex justify-center items-center space-x-2 mb-4">
-          <span className="w-3 h-3 rounded-full bg-primaryPurple"></span>
-          <span className="w-3 h-3 rounded-full bg-textBlack"></span>
-          <span className="w-3 h-3 rounded-full bg-primaryRed"></span>
-        </div>
-
-        <h2 className="text-3xl font-bold text-textBlack mb-2 text-center">
-          Create Account
-        </h2>
-        <p className="text-gray-500 text-center mb-6">
-          or use email for registration
-        </p>
-
-        {/* General error message */}
-        {errors.general && (
-          <div className="bg-red-100 border border-red-400 text-primaryRed px-4 py-3 mb-4 rounded w-full max-w-sm">
-            {errors.general}
+      <div className="flex flex-col justify-center items-center w-full lg:w-1/2 p-6 sm:p-8 lg:p-12">
+        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 sm:p-10 transition-all duration-300">
+          <div className="flex justify-center items-center space-x-3 mb-6">
+            <span className="w-4 h-4 rounded-full bg-primaryPurple animate-pulse"></span>
+            <span className="w-4 h-4 rounded-full bg-highlightBlue animate-pulse delay-100"></span>
+            <span className="w-4 h-4 rounded-full bg-primaryRed animate-pulse delay-200"></span>
           </div>
-        )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm">
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-textBlack mb-1"
+          <h2 className="text-3xl sm:text-4xl font-bold text-textBlack dark:text-white mb-3 text-center">
+            Create Your Account
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 text-center mb-8">
+            Join Youtube-upl to schedule your posts effortlessly
+          </p>
+
+          {errors.general && (
+            <div className="bg-red-100 dark:bg-red-900/30 border border-primaryRed text-primaryRed dark:text-red-400 px-4 py-3 mb-6 rounded-lg animate-shake">
+              {errors.general}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-2"
+              >
+                Full Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                className={`block w-full rounded-lg border ${errors.name ? 'border-primaryRed' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 p-3 text-textBlack dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-highlightBlue focus:border-highlightBlue transition-all duration-200 ${errors.name ? 'animate-shake' : ''}`}
+                placeholder="Your Name"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+              {errors.name && (
+                <p className="text-primaryRed dark:text-red-400 text-sm mt-2 animate-fade-in">{errors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="email-address"
+                className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-2"
+              >
+                Email Address
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className={`block w-full rounded-lg border ${errors.email ? 'border-primaryRed' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 p-3 text-textBlack dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-highlightBlue focus:border-highlightBlue transition-all duration-200 ${errors.email ? 'animate-shake' : ''}`}
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleInputChange}
+              />
+              {errors.email && (
+                <p className="text-primaryRed dark:text-red-400 text-sm mt-2 animate-fade-in">{errors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-textBlack dark:text-gray-200 mb-2"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className={`block w-full rounded-lg border ${errors.password ? 'border-primaryRed' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 p-3 text-textBlack dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-highlightBlue focus:border-highlightBlue transition-all duration-200 ${errors.password ? 'animate-shake' : ''}`}
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleInputChange}
+              />
+              {errors.password && (
+                <p className="text-primaryRed dark:text-red-400 text-sm mt-2 animate-fade-in">{errors.password}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 bg-primaryPurple text-white rounded-lg font-semibold hover:bg-highlightBlue dark:hover:bg-highlightBlue transition-all duration-300 shadow-md hover:shadow-lg focus:ring-2 focus:ring-highlightBlue focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Full Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
-                errors.name ? "border border-red-400" : ""
-              }`}
-              placeholder="Your Name"
-              value={formData.name}
-              onChange={handleInputChange}
-            />
-            {errors.name && (
-              <p className="text-primaryRed text-sm mt-1">{errors.name}</p>
-            )}
-          </div>
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z" />
+                  </svg>
+                  Creating account...
+                </span>
+              ) : (
+                "Sign Up"
+              )}
+            </button>
+          </form>
 
-          <div>
-            <label
-              htmlFor="email-address"
-              className="block text-sm font-medium text-textBlack mb-1"
+          <div className="text-sm text-center mt-6 text-gray-500 dark:text-gray-400">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-primaryPurple hover:text-highlightBlue dark:hover:text-highlightBlue transition-colors duration-200"
             >
-              Email Address
-            </label>
-            <input
-              id="email-address"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
-                errors.email ? "border border-red-400" : ""
-              }`}
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleInputChange}
-            />
-            {errors.email && (
-              <p className="text-primaryRed text-sm mt-1">{errors.email}</p>
-            )}
+              Sign in
+            </Link>
           </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-textBlack mb-1"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              className={`block w-full rounded-md bg-textBlack p-3 focus:bg-white focus:text-textBlack ${
-                errors.password ? "border border-red-400" : ""
-              }`}
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={handleInputChange}
-            />
-            {errors.password && (
-              <p className="text-primaryRed text-sm mt-1">{errors.password}</p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primaryPurple hover:bg-white hover:border-primaryPurple hover:border-2 hover:text-primaryPurple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-75 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Creating account..." : "Sign Up"}
-          </button>
-        </form>
-
-        {/* Already have account */}
-        <div className="text-sm text-center mt-4 text ਆਓ-primaryPurple">
-          Already have an account?{" "}
-          <Link
-            href="/login"
-            className="font-medium text-primaryPurple hover:text-primaryRed"
-          >
-            Sign in
-          </Link>
         </div>
       </div>
     </div>

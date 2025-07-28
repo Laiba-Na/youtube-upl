@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useReducer } from "react";
-import * as fabric from "fabric";
-import { ChangeEvent } from "react";
+import React, { useEffect, useRef, useState, useCallback, useReducer } from 'react';
+import * as fabric from 'fabric';
+import { ChangeEvent } from 'react';
+import { useDarkMode } from '@/app/DarkModeContext';
 import {
   FaFont,
   FaSquare,
@@ -27,6 +28,7 @@ interface EditorProps {
 }
 
 const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
+  const { darkMode } = useDarkMode();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
@@ -64,9 +66,9 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
       setCanvas(fabricCanvas);
       fabricCanvas.setDimensions({ width: canvasWidth, height: canvasHeight });
 
-      fabricCanvas.on("selection:created", (e) => setActiveObject(fabricCanvas.getActiveObject() || null));
-      fabricCanvas.on("selection:updated", (e) => setActiveObject(fabricCanvas.getActiveObject() || null));
-      fabricCanvas.on("selection:cleared", () => setActiveObject(null));
+      fabricCanvas.on('selection:created', (e) => setActiveObject(fabricCanvas.getActiveObject() || null));
+      fabricCanvas.on('selection:updated', (e) => setActiveObject(fabricCanvas.getActiveObject() || null));
+      fabricCanvas.on('selection:cleared', () => setActiveObject(null));
 
       const events: (keyof fabric.CanvasEvents)[] = ['object:added', 'object:modified', 'object:removed', 'path:created'];
       events.forEach((event) => {
@@ -96,7 +98,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
           setRedoStack([]);
         });
       } catch (err) {
-        console.error("Error loading initial data:", err);
+        console.error('Error loading initial data:', err);
       }
     }
   }, [canvas, initialData]);
@@ -121,7 +123,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
       const currentState = JSON.stringify(json);
       if (currentState !== lastSavedState.current) {
         if (lastSavedState.current) {
-          setUndoStack(prev => [...prev, lastSavedState.current!].slice(-30));
+          setUndoStack((prev) => [...prev, lastSavedState.current!].slice(-30));
         }
         setRedoStack([]);
         lastSavedState.current = currentState;
@@ -138,8 +140,8 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
         canvas.renderAll();
         lastSavedState.current = previousState;
       });
-      setUndoStack(prev => prev.slice(0, -1));
-      setRedoStack(prev => [JSON.stringify(canvas.toJSON()), ...prev]);
+      setUndoStack((prev) => prev.slice(0, -1));
+      setRedoStack((prev) => [JSON.stringify(canvas.toJSON()), ...prev]);
     }
   }, [canvas, undoStack]);
 
@@ -152,18 +154,23 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
         canvas.renderAll();
         lastSavedState.current = nextState;
       });
-      setRedoStack(prev => prev.slice(1));
-      setUndoStack(prev => [...prev, JSON.stringify(canvas.toJSON())]);
+      setRedoStack((prev) => prev.slice(1));
+      setUndoStack((prev) => [...prev, JSON.stringify(canvas.toJSON())]);
     }
   }, [canvas, redoStack]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
-      else if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); }
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo]);
 
   const forceUpdate = useReducer(() => ({}), {})[1];
@@ -179,11 +186,11 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   };
 
   const presetSizes = [
-    { name: "Facebook Post", width: 1200, height: 630 },
-    { name: "Facebook Cover", width: 820, height: 312 },
-    { name: "Instagram Post", width: 1080, height: 1080 },
-    { name: "Instagram Story", width: 1080, height: 1920 },
-    { name: "YouTube Thumbnail", width: 1280, height: 720 },
+    { name: 'Facebook Post', width: 1200, height: 630 },
+    { name: 'Facebook Cover', width: 820, height: 312 },
+    { name: 'Instagram Post', width: 1080, height: 1080 },
+    { name: 'Instagram Story', width: 1080, height: 1920 },
+    { name: 'YouTube Thumbnail', width: 1280, height: 720 },
   ];
 
   useEffect(() => {
@@ -191,7 +198,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
       canvas.isDrawingMode = true;
       canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
       canvas.freeDrawingBrush.width = 5;
-      canvas.freeDrawingBrush.color = "#000000";
+      canvas.freeDrawingBrush.color = '#000000';
       canvas.renderAll();
     } else if (canvas) {
       canvas.isDrawingMode = false;
@@ -202,36 +209,26 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   const handleSave = async () => {
     if (canvas && onSave) {
       try {
-        // Generate thumbnail from canvas
         const thumbnailDataURL = canvas.toDataURL({
           format: 'png',
           multiplier: 0.5,
         });
-  
-        // Convert dataURL to Blob
         const blob = await (await fetch(thumbnailDataURL)).blob();
-  
-        // Upload thumbnail
         const formData = new FormData();
         formData.append('file', blob, 'thumbnail.png');
         const uploadResponse = await fetch('/api/assets/upload', {
           method: 'POST',
           body: formData,
         });
-  
         if (!uploadResponse.ok) {
           const errorData = await uploadResponse.json();
           throw new Error(`Failed to upload thumbnail: ${errorData.error}`);
         }
-  
         const { url: thumbnailUrl } = await uploadResponse.json();
-  
-        // Save project with thumbnail
         const json = canvas.toJSON();
         json.canvasWidth = canvasWidth;
         json.canvasHeight = canvasHeight;
         json.thumbnail = thumbnailUrl;
-        console.log('Saving content:', JSON.stringify(json));
         onSave(JSON.stringify(json));
       } catch (error) {
         console.error('Error saving project:', error);
@@ -241,25 +238,22 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   };
 
   const loadFabricImage = (url: string): Promise<fabric.FabricImage> => {
-    return fabric.FabricImage.fromURL(url,  {crossOrigin: 'anonymous'});
+    return fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
   };
 
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !projectId) return;
     const file = e.target.files[0];
-    
     const form = new FormData();
-    form.append("file", file);
-
+    form.append('file', file);
     const res = await fetch(`/api/projects/${projectId}/assets`, {
-      method: "POST",
+      method: 'POST',
       body: form,
     });
     if (!res.ok) {
       console.error(await res.text());
       return;
     }
-
     const { url } = await res.json();
     try {
       const img = await loadFabricImage(url);
@@ -269,14 +263,18 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
       canvas?.renderAll();
       debounceSaveState();
     } catch (err) {
-      console.error("Error loading image:", err);
+      console.error('Error loading image:', err);
     }
   };
 
   const addText = () => {
     if (canvas) {
-      const text = new fabric.Textbox("Edit this text", {
-        left: 100, top: 100, fontFamily: "Arial", fill: "#000000", fontSize: 20,
+      const text = new fabric.Textbox('Edit this text', {
+        left: 100,
+        top: 100,
+        fontFamily: 'Arial',
+        fill: '#000000',
+        fontSize: 20,
       });
       canvas.add(text);
       canvas.setActiveObject(text);
@@ -288,7 +286,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
 
   const addRectangle = () => {
     if (canvas) {
-      const rect = new fabric.Rect({ left: 100, top: 100, fill: "#FF5733", width: 100, height: 100 });
+      const rect = new fabric.Rect({ left: 100, top: 100, fill: '#FF5733', width: 100, height: 100 });
       canvas.add(rect);
       canvas.setActiveObject(rect);
       setActiveObject(rect);
@@ -299,7 +297,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
 
   const addCircle = () => {
     if (canvas) {
-      const circle = new fabric.Circle({ left: 100, top: 100, fill: "#33A1FF", radius: 50 });
+      const circle = new fabric.Circle({ left: 100, top: 100, fill: '#33A1FF', radius: 50 });
       canvas.add(circle);
       canvas.setActiveObject(circle);
       setActiveObject(circle);
@@ -310,7 +308,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
 
   const addTriangle = () => {
     if (canvas) {
-      const triangle = new fabric.Triangle({ left: 100, top: 100, fill: "#33FF57", width: 100, height: 100 });
+      const triangle = new fabric.Triangle({ left: 100, top: 100, fill: '#33FF57', width: 100, height: 100 });
       canvas.add(triangle);
       canvas.setActiveObject(triangle);
       setActiveObject(triangle);
@@ -322,8 +320,14 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   const addPolygon = () => {
     if (canvas) {
       const polygon = new fabric.Polygon(
-        [{ x: 50, y: 0 }, { x: 100, y: 50 }, { x: 75, y: 100 }, { x: 25, y: 100 }, { x: 0, y: 50 }],
-        { left: 100, top: 100, fill: "#FF33A1" }
+        [
+          { x: 50, y: 0 },
+          { x: 100, y: 50 },
+          { x: 75, y: 100 },
+          { x: 25, y: 100 },
+          { x: 0, y: 50 },
+        ],
+        { left: 100, top: 100, fill: '#FF33A1' }
       );
       canvas.add(polygon);
       canvas.setActiveObject(polygon);
@@ -340,7 +344,7 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
         if (!prev) {
           canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
           canvas.freeDrawingBrush.width = 5;
-          canvas.freeDrawingBrush.color = "#000000";
+          canvas.freeDrawingBrush.color = '#000000';
         }
       }
       return !prev;
@@ -348,13 +352,19 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   };
 
   const applyFilter = (filter: string, value: number) => {
-    if (canvas && activeObject && activeObject.type === "image") {
+    if (canvas && activeObject && activeObject.type === 'image') {
       const imgObj = activeObject as fabric.FabricImage;
       imgObj.filters = [];
       switch (filter) {
-        case "brightness": imgObj.filters.push(new fabric.filters.Brightness({ brightness: value })); break;
-        case "contrast": imgObj.filters.push(new fabric.filters.Contrast({ contrast: value })); break;
-        case "saturation": imgObj.filters.push(new fabric.filters.Saturation({ saturation: value })); break;
+        case 'brightness':
+          imgObj.filters.push(new fabric.filters.Brightness({ brightness: value }));
+          break;
+        case 'contrast':
+          imgObj.filters.push(new fabric.filters.Contrast({ contrast: value }));
+          break;
+        case 'saturation':
+          imgObj.filters.push(new fabric.filters.Saturation({ saturation: value }));
+          break;
       }
       imgObj.applyFilters();
       canvas.renderAll();
@@ -363,24 +373,30 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   };
 
   const formatText = (format: string) => {
-    if (canvas && activeObject && activeObject.type === "textbox") {
+    if (canvas && activeObject && activeObject.type === 'textbox') {
       const textbox = activeObject as fabric.Textbox;
       switch (format) {
-        case "bold": textbox.set("fontWeight", textbox.fontWeight === "bold" ? "normal" : "bold"); break;
-        case "italic": textbox.set("fontStyle", textbox.fontStyle === "italic" ? "normal" : "italic"); break;
-        case "underline": textbox.set("underline", !textbox.underline); break;
+        case 'bold':
+          textbox.set('fontWeight', textbox.fontWeight === 'bold' ? 'normal' : 'bold');
+          break;
+        case 'italic':
+          textbox.set('fontStyle', textbox.fontStyle === 'italic' ? 'normal' : 'italic');
+          break;
+        case 'underline':
+          textbox.set('underline', !textbox.underline);
+          break;
       }
       canvas.renderAll();
       debounceSaveState();
     }
   };
 
-  type TextboxTextAlign = "left" | "center" | "right";
+  type TextboxTextAlign = 'left' | 'center' | 'right';
 
   const alignText = (alignment: string) => {
-    if (canvas && activeObject && activeObject.type === "textbox") {
+    if (canvas && activeObject && activeObject.type === 'textbox') {
       const textbox = activeObject as fabric.Textbox;
-      textbox.set("textAlign", alignment as TextboxTextAlign);
+      textbox.set('textAlign', alignment as TextboxTextAlign);
       canvas.renderAll();
       debounceSaveState();
     }
@@ -390,12 +406,24 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
     if (canvas && activeObject) {
       const obj = activeObject;
       switch (alignment) {
-        case "left": obj.set("left", 0); break;
-        case "center": obj.set("left", (canvas.width! - obj.width! * obj.scaleX!) / 2); break;
-        case "right": obj.set("left", canvas.width! - obj.width! * obj.scaleX!); break;
-        case "top": obj.set("top", 0); break;
-        case "middle": obj.set("top", (canvas.height! - obj.height! * obj.scaleY!) / 2); break;
-        case "bottom": obj.set("top", canvas.height! - obj.height! * obj.scaleY!); break;
+        case 'left':
+          obj.set('left', 0);
+          break;
+        case 'center':
+          obj.set('left', (canvas.width! - obj.width! * obj.scaleX!) / 2);
+          break;
+        case 'right':
+          obj.set('left', canvas.width! - obj.width! * obj.scaleX!);
+          break;
+        case 'top':
+          obj.set('top', 0);
+          break;
+        case 'middle':
+          obj.set('top', (canvas.height! - obj.height! * obj.scaleY!) / 2);
+          break;
+        case 'bottom':
+          obj.set('top', canvas.height! - obj.height! * obj.scaleY!);
+          break;
       }
       canvas.renderAll();
       debounceSaveState();
@@ -426,133 +454,197 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
   return (
     <div className="flex h-full">
       {/* Left Vertical Toolbar */}
-      <div className="w-16 bg-gray-100 border-r border-gray-300 flex flex-col items-center py-4 space-y-4">
-        <label className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 cursor-pointer" title="Upload Image">
-          <FaImage className="text-2xl" />
+      <div
+        className={`w-16 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-r ${
+          darkMode ? 'border-gray-600' : 'border-gray-300'
+        } flex flex-col items-center py-4 space-y-4`}
+      >
+        <label
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer"
+          title="Upload Image"
+          aria-label="Upload image"
+        >
+          <FaImage className="text-2xl text-textBlack dark:text-white" />
           <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
         </label>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={addText} title="Add Text">
-          <FaFont className="text-2xl" />
-        </button>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={addRectangle} title="Add Rectangle">
-          <FaSquare className="text-2xl" />
-        </button>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={addCircle} title="Add Circle">
-          <FaCircle className="text-2xl" />
-        </button>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={addTriangle} title="Add Triangle">
-          <FaPlay className="text-2xl transform rotate-90" />
-        </button>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={addPolygon} title="Add Polygon">
-          <FaDrawPolygon className="text-2xl" />
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={addText}
+          title="Add Text"
+          aria-label="Add text"
+        >
+          <FaFont className="text-2xl text-textBlack dark:text-white" />
         </button>
         <button
-          className={`flex items-center justify-center w-10 h-10 rounded ${drawingMode ? 'bg-blue-200' : 'hover:bg-gray-200'}`}
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={addRectangle}
+          title="Add Rectangle"
+          aria-label="Add rectangle"
+        >
+          <FaSquare className="text-2xl text-textBlack dark:text-white" />
+        </button>
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={addCircle}
+          title="Add Circle"
+          aria-label="Add circle"
+        >
+          <FaCircle className="text-2xl text-textBlack dark:text-white" />
+        </button>
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={addTriangle}
+          title="Add Triangle"
+          aria-label="Add triangle"
+        >
+          <FaPlay className="text-2xl text-textBlack dark:text-white transform rotate-90" />
+        </button>
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={addPolygon}
+          title="Add Polygon"
+          aria-label="Add polygon"
+        >
+          <FaDrawPolygon className="text-2xl text-textBlack dark:text-white" />
+        </button>
+        <button
+          className={`flex items-center justify-center w-10 h-10 rounded transition-all duration-200 ${
+            drawingMode ? 'bg-highlightBlue' : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
           onClick={toggleDrawingMode}
           title={drawingMode ? 'Exit Drawing' : 'Pen Tool'}
+          aria-label={drawingMode ? 'Exit drawing mode' : 'Enter drawing mode'}
         >
-          <FaPen className="text-2xl" />
+          <FaPen className="text-2xl text-textBlack dark:text-white" />
         </button>
-        <div className="w-8 h-px bg-gray-300" />
+        <div className="w-8 h-px bg-gray-300 dark:bg-gray-600" />
         <button
-          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 disabled:opacity-50"
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
           onClick={undo}
           disabled={undoStack.length === 0}
           title="Undo"
+          aria-label="Undo"
         >
-          <FaUndo className="text-2xl" />
+          <FaUndo className="text-2xl text-textBlack dark:text-white" />
         </button>
         <button
-          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 disabled:opacity-50"
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
           onClick={redo}
           disabled={redoStack.length === 0}
           title="Redo"
+          aria-label="Redo"
         >
-          <FaRedo className="text-2xl" />
+          <FaRedo className="text-2xl text-textBlack dark:text-white" />
         </button>
-        <div className="w-8 h-px bg-gray-300" />
+        <div className="w-8 h-px bg-gray-300 dark:bg-gray-600" />
         <button
-          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 disabled:opacity-50"
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
           onClick={cloneObject}
           disabled={!activeObject}
           title="Clone"
+          aria-label="Clone object"
         >
-          <FaClone className="text-2xl" />
+          <FaClone className="text-2xl text-textBlack dark:text-white" />
         </button>
         <button
-          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 disabled:opacity-50"
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
           onClick={deleteObject}
           disabled={!activeObject}
           title="Delete"
+          aria-label="Delete object"
         >
-          <FaTrash className="text-2xl" />
+          <FaTrash className="text-2xl text-textBlack dark:text-white" />
         </button>
-        <div className="w-8 h-px bg-gray-300" />
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={handleSave} title="Save">
-          <FaSave className="text-2xl" />
+        <div className="w-8 h-px bg-gray-300 dark:bg-gray-600" />
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={handleSave}
+          title="Save"
+          aria-label="Save project"
+        >
+          <FaSave className="text-2xl text-textBlack dark:text-white" />
         </button>
-        <div className="w-8 h-px bg-gray-300" />
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={() => handleZoom(zoom + 0.1)} title="Zoom In">
-          <FaSearchPlus className="text-2xl" />
+        <div className="w-8 h-px bg-gray-300 dark:bg-gray-600" />
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={() => handleZoom(zoom + 0.1)}
+          title="Zoom In"
+          aria-label="Zoom in"
+        >
+          <FaSearchPlus className="text-2xl text-textBlack dark:text-white" />
         </button>
-        <button className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200" onClick={() => handleZoom(zoom - 0.1)} title="Zoom Out">
-          <FaSearchMinus className="text-2xl" />
+        <button
+          className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+          onClick={() => handleZoom(zoom - 0.1)}
+          title="Zoom Out"
+          aria-label="Zoom out"
+        >
+          <FaSearchMinus className="text-2xl text-textBlack dark:text-white" />
         </button>
       </div>
 
       {/* Center Canvas */}
-      <div className="flex-1 overflow-auto flex justify-center items-center bg-gray-200 p-4">
-        <canvas ref={canvasRef} />
+      <div className="flex-1 overflow-auto flex justify-center items-center bg-gray-200 dark:bg-gray-700 p-4">
+        <canvas ref={canvasRef} className="border border-gray-300 dark:border-gray-600 shadow-lg" />
       </div>
 
       {/* Right Properties Panel */}
-      <div className="w-64 p-4 bg-white border-l border-gray-300 overflow-auto">
-        <h3 className="font-bold text-lg mb-4">Properties</h3>
+      <div
+        className={`w-64 p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'} border-l ${
+          darkMode ? 'border-gray-600' : 'border-gray-300'
+        } overflow-auto`}
+      >
+        <h3 className="text-lg font-bold text-textBlack dark:text-white mb-4">Properties</h3>
         {!activeObject ? (
           <div>
-            <h4 className="font-semibold mb-2">Canvas Properties</h4>
+            <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Canvas Properties</h4>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium">Width</label>
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Width</label>
                 <input
                   type="number"
                   value={canvasWidth}
                   onChange={(e) => setCanvasWidth(parseInt(e.target.value) || 800)}
-                  className="mt-1 block w-full p-2 border rounded"
+                  className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                  aria-label="Canvas width"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium">Height</label>
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Height</label>
                 <input
                   type="number"
                   value={canvasHeight}
                   onChange={(e) => setCanvasHeight(parseInt(e.target.value) || 600)}
-                  className="mt-1 block w-full p-2 border rounded"
+                  className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                  aria-label="Canvas height"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium">Background Color</label>
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Background Color</label>
                 <input
                   type="color"
                   value={backgroundColor}
                   onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="mt-1 block w-full"
+                  className="mt-1 block w-full h-10 rounded-lg"
+                  aria-label="Canvas background color"
                 />
               </div>
               <button
                 onClick={() => updateCanvasSize(canvasWidth, canvasHeight)}
-                className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="w-full px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200"
+                aria-label="Apply canvas size"
               >
                 Apply Size
               </button>
               <div>
-                <h5 className="font-medium mb-2">Presets</h5>
+                <h5 className="text-sm font-medium text-textBlack dark:text-white mb-2">Presets</h5>
                 <div className="grid grid-cols-2 gap-2">
                   {presetSizes.map((preset) => (
                     <button
                       key={preset.name}
                       onClick={() => updateCanvasSize(preset.width, preset.height)}
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-sm text-textBlack dark:text-white transition-all duration-200"
+                      aria-label={`Set canvas to ${preset.name}`}
                     >
                       {preset.name}
                     </button>
@@ -560,18 +652,20 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium">Zoom</label>
-                <div className="flex items-center space-x-2">
+                <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Zoom</label>
+                <div className="flex items-center space-x-2 mt-1">
                   <button
                     onClick={() => handleZoom(zoom - 0.1)}
-                    className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-textBlack dark:text-white transition-all duration-200"
+                    aria-label="Zoom out"
                   >
                     -
                   </button>
-                  <span>{(zoom * 100).toFixed(0)}%</span>
+                  <span className="text-textBlack dark:text-white">{(zoom * 100).toFixed(0)}%</span>
                   <button
                     onClick={() => handleZoom(zoom + 0.1)}
-                    className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-textBlack dark:text-white transition-all duration-200"
+                    aria-label="Zoom in"
                   >
                     +
                   </button>
@@ -583,10 +677,10 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
           <>
             {drawingMode && canvas && (
               <div className="mb-4">
-                <h4 className="font-semibold mb-2">Drawing Properties</h4>
+                <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Drawing Properties</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm">Brush Size</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Brush Size</label>
                     <input
                       type="range"
                       min="1"
@@ -594,38 +688,40 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                       value={canvas.freeDrawingBrush!.width}
                       onChange={(e) => {
                         canvas.freeDrawingBrush!.width = parseInt(e.target.value);
-                        activeObject?.set("range", parseFloat(e.target.value));
+                        activeObject?.set('range', parseFloat(e.target.value));
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
                       className="w-full"
+                      aria-label="Brush size"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Brush Color</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Brush Color</label>
                     <input
                       type="color"
                       value={canvas.freeDrawingBrush!.color as string}
                       onChange={(e) => {
                         canvas.freeDrawingBrush!.color = e.target.value;
-                        activeObject?.set("color", e.target.value);
+                        activeObject?.set('color', e.target.value);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full"
+                      className="w-full h-10 rounded-lg"
+                      aria-label="Brush color"
                     />
                   </div>
                 </div>
               </div>
             )}
-            {activeObject && activeObject.type === "image" && (
+            {activeObject && activeObject.type === 'image' && (
               <div className="mb-4">
-                <h4 className="font-semibold mb-2">Image Filters</h4>
+                <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Image Filters</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm">Brightness</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Brightness</label>
                     <input
                       type="range"
                       min="-1"
@@ -635,16 +731,17 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setFilterOptions({ ...filterOptions, brightness: val });
-                        applyFilter("brightness", val);
-                         canvas?.renderAll();
+                        applyFilter('brightness', val);
+                        canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
                       className="w-full"
+                      aria-label="Image brightness"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Contrast</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Contrast</label>
                     <input
                       type="range"
                       min="-1"
@@ -654,16 +751,17 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setFilterOptions({ ...filterOptions, contrast: val });
-                        applyFilter("contrast", val);
+                        applyFilter('contrast', val);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
                       className="w-full"
+                      aria-label="Image contrast"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Saturation</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Saturation</label>
                     <input
                       type="range"
                       min="-1"
@@ -673,32 +771,34 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setFilterOptions({ ...filterOptions, saturation: val });
-                        applyFilter("saturation", val);
+                        applyFilter('saturation', val);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
                       className="w-full"
+                      aria-label="Image saturation"
                     />
                   </div>
                 </div>
               </div>
             )}
-            {activeObject && activeObject.type === "textbox" && (
+            {activeObject && activeObject.type === 'textbox' && (
               <div className="mb-4">
-                <h4 className="font-semibold mb-2">Text Properties</h4>
+                <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Text Properties</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm">Font Family</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Font Family</label>
                     <select
                       value={(activeObject as fabric.Textbox).fontFamily}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("fontFamily", e.target.value);
+                        (activeObject as fabric.Textbox).set('fontFamily', e.target.value);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w disponível-full p-1 border rounded"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                      aria-label="Font family"
                     >
                       <option value="Arial">Arial</option>
                       <option value="Times New Roman">Times New Roman</option>
@@ -708,104 +808,125 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm">Font Size</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Font Size</label>
                     <input
                       type="number"
                       value={(activeObject as fabric.Textbox).fontSize}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("fontSize", parseInt(e.target.value));
+                        (activeObject as fabric.Textbox).set('fontSize', parseInt(e.target.value));
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full p-1 border rounded"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                      aria-label="Font size"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Color</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Color</label>
                     <input
                       type="color"
                       value={(activeObject as fabric.Textbox).fill as string}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("fill", e.target.value);
+                        (activeObject as fabric.Textbox).set('fill', e.target.value);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full"
+                      className="w-full h-10 rounded-lg"
+                      aria-label="Text color"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Background</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Background</label>
                     <input
                       type="color"
-                      value={(activeObject as fabric.Textbox).backgroundColor as string || "#ffffff"}
+                      value={(activeObject as fabric.Textbox).backgroundColor as string | '#ffffff'}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("backgroundColor", e.target.value);
+                        (activeObject as fabric.Textbox).set('backgroundColor', e.target.value);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full"
+                      className="w-full h-10 rounded-lg"
+                      aria-label="Text background color"
                     />
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={(activeObject as fabric.Textbox).fontWeight === "bold"}
+                      checked={(activeObject as fabric.Textbox).fontWeight === 'bold'}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("fontWeight", e.target.checked ? "bold" : "normal");
+                        (activeObject as fabric.Textbox).set('fontWeight', e.target.checked ? 'bold' : 'normal');
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
+                      aria-label="Bold text"
                     />
-                    <label>Bold</label>
+                    <label className="text-sm text-textBlack dark:text-gray-200">Bold</label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={(activeObject as fabric.Textbox).fontStyle === "italic"}
+                      checked={(activeObject as fabric.Textbox).fontStyle === 'italic'}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("fontStyle", e.target.checked ? "italic" : "normal");
+                        (activeObject as fabric.Textbox).set('fontStyle', e.target.checked ? 'italic' : 'normal');
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
+                      aria-label="Italic text"
                     />
-                    <label>Italic</label>
+                    <label className="text-sm text-textBlack dark:text-gray-200">Italic</label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
                       checked={(activeObject as fabric.Textbox).underline}
                       onChange={(e) => {
-                        (activeObject as fabric.Textbox).set("underline", e.target.checked);
+                        (activeObject as fabric.Textbox).set('underline', e.target.checked);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
+                      aria-label="Underline text"
                     />
-                    <label>Underline</label>
+                    <label className="text-sm text-textBlack dark:text-gray-200">Underline</label>
                   </div>
                   <div>
-                    <label className="block text-sm">Text Alignment</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Text Alignment</label>
                     <div className="flex space-x-2 mt-1">
                       <button
-                        className={`px-2 py-1 border ${(activeObject as fabric.Textbox).textAlign === "left" ? "bg-blue-200" : "bg-gray-100"}`}
-                        onClick={() => alignText("left")}
+                        className={`px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-textBlack dark:text-white ${
+                          (activeObject as fabric.Textbox).textAlign === 'left'
+                            ? 'bg-highlightBlue text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        } transition-all duration-200`}
+                        onClick={() => alignText('left')}
+                        aria-label="Align text left"
                       >
                         Left
                       </button>
                       <button
-                        className={`px-2 py-1 border ${(activeObject as fabric.Textbox).textAlign === "center" ? "bg-blue-200" : "bg-gray-100"}`}
-                        onClick={() => alignText("center")}
+                        className={`px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-textBlack dark:text-white ${
+                          (activeObject as fabric.Textbox).textAlign === 'center'
+                            ? 'bg-highlightBlue text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        } transition-all duration-200`}
+                        onClick={() => alignText('center')}
+                        aria-label="Align text center"
                       >
                         Center
                       </button>
                       <button
-                        className={`px-2 py-1 border ${(activeObject as fabric.Textbox).textAlign === "right" ? "bg-blue-200" : "bg-gray-100"}`}
-                        onClick={() => alignText("right")}
+                        className={`px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-textBlack dark:text-white ${
+                          (activeObject as fabric.Textbox).textAlign === 'right'
+                            ? 'bg-highlightBlue text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        } transition-all duration-200`}
+                        onClick={() => alignText('right')}
+                        aria-label="Align text right"
                       >
                         Right
                       </button>
@@ -814,102 +935,112 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                 </div>
               </div>
             )}
-            {activeObject && (activeObject.type === "rect" || activeObject.type === "circle" || activeObject.type === "triangle" || activeObject.type === "polygon") && (
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">Shape Properties</h4>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-sm">Fill Color</label>
-                    <input
-                      type="color"
-                      value={activeObject.fill as string}
-                      onChange={(e) => {
-                        activeObject.set("fill", e.target.value);
-                        canvas?.renderAll();
-                        forceUpdate();
-                        debounceSaveState();
-                      }}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Stroke Color</label>
-                    <input
-                      type="color"
-                      value={activeObject.stroke as string || "#000000"}
-                      onChange={(e) => {
-                        activeObject.set("stroke", e.target.value);
-                        canvas?.renderAll();
-                        forceUpdate();
-                        debounceSaveState();
-                      }}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Stroke Width</label>
-                    <input
-                      type="number"
-                      value={activeObject.strokeWidth || 0}
-                      onChange={(e) => {
-                        activeObject.set("strokeWidth", parseInt(e.target.value));
-                        canvas?.renderAll();
-                        forceUpdate();
-                        debounceSaveState();
-                      }}
-                      className="w-full p-1 border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Opacity</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={activeObject.opacity || 1}
-                      onChange={(e) => {
-                        activeObject.set("opacity", parseFloat(e.target.value));
-                        canvas?.renderAll();
-                        forceUpdate();
-                        debounceSaveState();
-                      }}
-                      className="w-full"
-                    />
+            {activeObject &&
+              (activeObject.type === 'rect' ||
+                activeObject.type === 'circle' ||
+                activeObject.type === 'triangle' ||
+                activeObject.type === 'polygon') && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Shape Properties</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Fill Color</label>
+                      <input
+                        type="color"
+                        value={activeObject.fill as string}
+                        onChange={(e) => {
+                          activeObject.set('fill', e.target.value);
+                          canvas?.renderAll();
+                          forceUpdate();
+                          debounceSaveState();
+                        }}
+                        className="w-full h-10 rounded-lg"
+                        aria-label="Shape fill color"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Stroke Color</label>
+                      <input
+                        type="color"
+                        value={activeObject.stroke as string | '#000000'}
+                        onChange={(e) => {
+                          activeObject.set('stroke', e.target.value);
+                          canvas?.renderAll();
+                          forceUpdate();
+                          debounceSaveState();
+                        }}
+                        className="w-full h-10 rounded-lg"
+                        aria-label="Shape stroke color"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Stroke Width</label>
+                      <input
+                        type="number"
+                        value={activeObject.strokeWidth || 0}
+                        onChange={(e) => {
+                          activeObject.set('strokeWidth', parseInt(e.target.value));
+                          canvas?.renderAll();
+                          forceUpdate();
+                          debounceSaveState();
+                        }}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                        aria-label="Shape stroke width"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Opacity</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={activeObject.opacity || 1}
+                        onChange={(e) => {
+                          activeObject.set('opacity', parseFloat(e.target.value));
+                          canvas?.renderAll();
+                          forceUpdate();
+                          debounceSaveState();
+                        }}
+                        className="w-full"
+                        aria-label="Shape opacity"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            {activeObject && activeObject.type === "path" && (
+              )}
+            {activeObject && activeObject.type === 'path' && (
               <div className="mb-4">
-                <h4 className="font-semibold mb-2">Path Properties</h4>
+                <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Path Properties</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm">Stroke Color</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Stroke Color</label>
                     <input
                       type="color"
-                      value={activeObject.stroke as string || "#000000"}
+                      value={activeObject.stroke as string | '#000000'}
                       onChange={(e) => {
-                        activeObject.set("stroke", e.target.value);
+                        activeObject.set('stroke', e.target.value);
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full"
+                      className="w-full h-10 rounded-lg"
+                      aria-label="Path stroke color"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm">Stroke Width</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Stroke Width</label>
                     <input
                       type="number"
                       value={activeObject.strokeWidth || 1}
                       onChange={(e) => {
-                        activeObject.set("strokeWidth", parseInt(e.target.value));
+                        activeObject.set('strokeWidth', parseInt(e.target.value));
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
-                      className="w-full p-1 border rounded"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-textBlack dark:text-white focus:ring-2 focus:ring-highlightBlue transition-all duration-200"
+                      aria-label="Path stroke width"
                     />
                   </div>
                 </div>
@@ -917,10 +1048,10 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
             )}
             {activeObject && (
               <div className="mb-4">
-                <h4 className="font-semibold mb-2">Common Properties</h4>
+                <h4 className="text-sm font-semibold text-textBlack dark:text-white mb-2">Common Properties</h4>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm">Opacity</label>
+                    <label className="block text-sm font-medium text-textBlack dark:text-gray-200">Opacity</label>
                     <input
                       type="range"
                       min="0"
@@ -928,15 +1059,16 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                       step="0.01"
                       value={activeObject.opacity || 1}
                       onChange={(e) => {
-                        activeObject.set("opacity", parseFloat(e.target.value));
+                        activeObject.set('opacity', parseFloat(e.target.value));
                         canvas?.renderAll();
                         forceUpdate();
                         debounceSaveState();
                       }}
                       className="w-full"
+                      aria-label="Object opacity"
                     />
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <button
                       onClick={() => {
                         if (activeObject && canvas) {
@@ -945,6 +1077,8 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                           debounceSaveState();
                         }
                       }}
+                      className="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-textBlack dark:text-white transition-all duration-200"
+                      aria-label="Bring object forward"
                     >
                       Bring Forward
                     </button>
@@ -956,6 +1090,8 @@ const Editor: React.FC<EditorProps> = ({ projectId, initialData, onSave }) => {
                           debounceSaveState();
                         }
                       }}
+                      className="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-textBlack dark:text-white transition-all duration-200"
+                      aria-label="Send object backward"
                     >
                       Send Backward
                     </button>

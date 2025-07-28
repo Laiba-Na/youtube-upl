@@ -1,53 +1,27 @@
-// app/PostMedia/[id]/page.tsx
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 import { Metadata } from 'next';
-import ShareButtons from "@/components/ShareButtons";
+import { notFound } from 'next/navigation';
+import PostMediaClient from '@/components/PostMediaClient';
 
+// Singleton PrismaClient
 const prisma = new PrismaClient();
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const post = await prisma.post.findUnique({
-    where: { id: params.id },
-    select: { title: true, description: true, imageUrl: true, hashtags: true },
-  });
-
-  if (!post) {
-    return {
-      title: 'Post Not Found',
-      description: 'The post you are looking for does not exist.',
-    };
-  }
-
-  const appUrl = process.env.NEXTAUTH_URL;
-  if (!appUrl) {
-    throw new Error('NEXTAUTH_URL is not set');
-  }
-  const imageUrl = post.imageUrl.startsWith('http') ? post.imageUrl : `${appUrl}${post.imageUrl}`;
-
-  return {
-    title: post.title,
-    description: `${post.description} ${post.hashtags ? post.hashtags.split(',').join(' ') : ''}` || 'Check out this post!',
-    openGraph: {
-      title: post.title,
-      description: `${post.description} ${post.hashtags ? post.hashtags.split(',').join(' ') : ''}` || 'Check out this post!',
-      images: [
-        {
-          url: imageUrl,
-          width: 1080,
-          height: 1080,
-          alt: post.title,
-        },
-      ],
-      type: 'article',
-      url: `${appUrl}/posts/${params.id}`,
-    },
-  };
+interface Post {
+  id: string;
+  title: string;
+  description: string | null;
+  hashtags: string | null;
+  imageUrl: string | null;
 }
 
-export default async function PostMediaPage({ params }: { params: { id: string } }) {
-  // Fetch post data
+interface Props {
+  params: { id: string };
+}
+
+// Shared logic for fetching post and constructing URLs
+async function getPostData(id: string) {
   const post = await prisma.post.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       title: true,
@@ -57,20 +31,10 @@ export default async function PostMediaPage({ params }: { params: { id: string }
     },
   });
 
-  // Handle post not found
-  if (!post) {
-    return <div className="p-4 text-center text-red-500">Post not found</div>;
-  }
+  if (!post) return null;
 
-  // Construct absolute URLs
-  const appUrl = process.env.NEXTAUTH_URL;
-  if (!appUrl) {
-    throw new Error('NEXTAUTH_URL is not set');
-  }
-  const postUrl = `${appUrl}/posts/${post.id}`;
-  const imageUrl = post.imageUrl.startsWith('http') ? post.imageUrl : `${appUrl}${post.imageUrl}`;
-
-  // Convert comma-separated hashtags to space-separated for sharing
+  const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const imageUrl = post.imageUrl?.startsWith('http') ? post.imageUrl : `${appUrl}${post.imageUrl}`;
   const formattedHashtags = post.hashtags
     ? post.hashtags
         .split(',')
@@ -78,20 +42,56 @@ export default async function PostMediaPage({ params }: { params: { id: string }
         .join(' ')
     : '';
 
+  return { post, imageUrl, formattedHashtags };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const data = await getPostData(params.id);
+  if (!data) {
+    return {
+      title: 'Post Not Found',
+      description: 'The post you are looking for does not exist.',
+    };
+  }
+
+  const { post, imageUrl, formattedHashtags } = data;
+  const description = `${post.description || ''} ${formattedHashtags}`.trim() || 'Check out this post!';
+
+  return {
+    title: post.title,
+    description,
+    openGraph: {
+      title: post.title,
+      description,
+      images: post.imageUrl
+        ? [
+            {
+              url: imageUrl,
+              width: 1080,
+              height: 1080,
+              alt: post.title,
+            },
+          ]
+        : [],
+      type: 'article',
+      url: `${process.env.NEXTAUTH_URL}/posts/${params.id}`,
+    },
+  };
+}
+
+export default async function PostMediaPage({ params }: Props) {
+  const data = await getPostData(params.id);
+  if (!data) {
+    notFound();
+  }
+
+  const { post, imageUrl, formattedHashtags } = data;
+
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
-      <img src={imageUrl} alt={post.title} className="w-full h-auto mb-4 rounded-lg object-cover" />
-      {post.description && <p className="mb-4 text-gray-600">{post.description}</p>}
-      {formattedHashtags && <p className="mb-4 text-sm text-gray-500">Hashtags: {formattedHashtags}</p>}
-      
-      <ShareButtons 
-        
-        imageUrl={imageUrl}
-        title={post.title}
-        description={post.description || ''}
-        hashtags={formattedHashtags}
-      />
-    </div>
+    <PostMediaClient
+      post={post}
+      imageUrl={imageUrl}
+      formattedHashtags={formattedHashtags}
+    />
   );
 }

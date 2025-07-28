@@ -1,13 +1,14 @@
-// components/CircularProgress.tsx
 import React from 'react';
+import { useDarkMode } from '@/app/DarkModeContext';
 
 interface CircularProgressProps {
-  value: number;        // Value to display in the center (e.g., 244)
-  maxValue: number;     // Maximum possible value (for calculating percentage)
-  label: string;        // The label text (e.g., "Lorem ipsum")
-  bottomText: string;   // The text at the bottom (e.g., "LOREM IPSUM")
-  size?: number;        // Size of the circle in pixels
-  thickness?: number;   // Thickness of the circle border
+  value: number;
+  maxValue: number;
+  label: string;
+  bottomText: string;
+  size?: number;
+  thickness?: number;
+  color?: string;
 }
 
 const CircularProgress: React.FC<CircularProgressProps> = ({
@@ -17,7 +18,10 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
   bottomText,
   size = 160,
   thickness = 12,
+  color = '#9C27B0', // Default to primaryPurple
 }) => {
+  const { darkMode } = useDarkMode();
+  
   // Calculate the percentage filled
   const percentage = Math.min(100, Math.max(0, (value / maxValue) * 100));
   
@@ -39,7 +43,6 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
           viewBox={`0 0 ${size} ${size}`}
           className="transform -rotate-90"
         >
-          {/* Better shadow filter */}
           <defs>
             <filter id="circular-shadow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
@@ -52,60 +55,62 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            
-            {/* Gradient definition */}
-            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#E83E5A" />
-              <stop offset="50%" stopColor="#9C27B0" />
-              <stop offset="100%" stopColor="#E83E5A" />
-            </linearGradient>
           </defs>
           
-          {/* Outer group with shadow */}
+          {/* Background circle */}
           <g filter="url(#circular-shadow)">
-            {/* Background circle */}
             <circle
               cx={center}
               cy={center}
               r={radius}
-              fill="white"
-              stroke="#f0f0f0"
+              fill={darkMode ? '#1F2937' : 'white'}
+              stroke={darkMode ? '#4B5563' : '#f0f0f0'}
               strokeWidth={thickness}
             />
           </g>
           
-          {/* Progress circle - rendered separately to avoid shadow on the progress arc */}
+          {/* Progress circle */}
           <circle
             cx={center}
             cy={center}
             r={radius}
             fill="none"
-            stroke="url(#progressGradient)"
+            stroke={color}
             strokeWidth={thickness}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
+            className="transition-all duration-500"
           />
         </svg>
         
         {/* Content inside the circle */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-4xl font-bold">{value}</div>
-          <div className="text-sm text-gray-600">{label}</div>
+          <div className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-textBlack'}`}>
+            {value}
+          </div>
+          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            {label}
+          </div>
           <div className="flex space-x-2 mt-1">
             <div className="w-2 h-2 rounded-full bg-primaryRed"></div>
             <div className="w-2 h-2 rounded-full bg-primaryPurple"></div>
-            <div className="w-2 h-2 rounded-full bg-highlightOrange"></div>
+            <div className="w-2 h-2 rounded-full bg-highlightYellow"></div>
           </div>
         </div>
       </div>
       
       {/* Bottom label with shadow */}
-      <div className="mt-4 bg-white px-6 py-2 rounded-full font-bold" 
-           style={{ 
-             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-             filter: 'drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15))'
-           }}>
+      <div
+        className={`mt-4 px-6 py-2 rounded-full font-bold ${
+          darkMode ? 'bg-gray-800 text-white' : 'bg-white text-textBlack'
+        }`}
+        style={{
+          boxShadow: darkMode
+            ? '0 4px 6px -1px rgba(255, 255, 255, 0.1), 0 2px 4px -1px rgba(255, 255, 255, 0.06)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        }}
+      >
         {bottomText}
       </div>
     </div>
