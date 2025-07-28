@@ -303,7 +303,7 @@ export default function CalendarPage() {
         }
 
         const socialPostData = await socialResponse.json();
-
+        //social post
         const formattedPost: SocialPost = {
           id: socialPostData.id,
           content: socialPostData.content,
