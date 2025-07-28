@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,9 +6,8 @@ import { useSession } from "next-auth/react";
 import SocialCalendar from "@/components/SocialCalendar";
 import { SocialPost } from "@prisma/client";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import emailjs from "emailjs-com";
 import toast from "react-hot-toast";
+import emailjs from "@emailjs/browser";
 
 export default function CalendarPage() {
   const { data: session } = useSession();
@@ -70,6 +70,19 @@ export default function CalendarPage() {
     const file = e.target.files?.[0];
     if (!file) {
       setError("No file selected");
+      toast.error("No file selected");
+      return;
+    }
+
+    if (!session?.user?.id) {
+      setError("Please log in to upload a video");
+      toast.error("Please log in to upload a video");
+      return;
+    }
+
+    if (!session?.user?.googleAccounts?.[0]?.id) {
+      setError("No Google account connected. Please connect a Google account.");
+      toast.error("No Google account connected. Please connect a Google account.");
       return;
     }
 
@@ -80,40 +93,39 @@ export default function CalendarPage() {
     formData.append("description", newPost.description);
     formData.append("tags", newPost.tags);
     formData.append("privacyStatus", newPost.privacyStatus);
-    formData.append(
-      "googleAccountId",
-      session?.user?.googleAccounts?.[0]?.id || ""
-    );
+    formData.append("googleAccountId", session.user.googleAccounts[0].id);
+
+    console.log("Uploading video with form data:", {
+      fileName: file.name,
+      fileSize: file.size,
+      content: newPost.content,
+      scheduledAt: newPost.scheduledAt,
+      googleAccountId: session.user.googleAccounts[0].id,
+    });
 
     try {
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
-      }
       const data = await response.json();
+      console.log("Upload response:", data);
+      if (!response.ok) {
+        throw new Error(data.error || `Upload failed: ${response.statusText}`);
+      }
       if (data.url) {
         setNewPost((prev) => ({ ...prev, mediaUrl: data.url }));
-        toast.success("Video uploaded to Cloudinary!");
+        toast.success("Video uploaded successfully!");
       } else if (data.message) {
         setNewPost((prev) => ({ ...prev, mediaUrl: "" }));
         toast.success(data.message);
       }
     } catch (error) {
       console.error("Error uploading video:", error);
-      setError(
-        `Failed to upload video: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-      toast.error(
-        `Failed to upload video: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to upload video";
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -121,10 +133,11 @@ export default function CalendarPage() {
     const file = e.target.files?.[0];
     if (!file) {
       setError("No file selected");
+      toast.error("No file selected");
       return;
     }
 
-    console.log("Selected file:", file); // Debug: Check file object
+    console.log("Selected file:", file);
     if (!file.type.startsWith("image/")) {
       setError("Please select a valid image file");
       toast.error("Please select a valid image file");
@@ -133,7 +146,7 @@ export default function CalendarPage() {
 
     const formData = new FormData();
     formData.append("file", file);
-    console.log("FormData entries:", Array.from(formData.entries())); // Debug: Check form data
+    console.log("FormData entries:", Array.from(formData.entries()));
 
     try {
       const response = await fetch("/api/assets/upload", {
@@ -147,29 +160,23 @@ export default function CalendarPage() {
         );
       }
       const data = await response.json();
-      console.log("Upload response:", data); // Debug: Check response
+      console.log("Upload response:", data);
       if (data.url) {
         setNewPost((prev) => ({
           ...prev,
           imageUrl: data.url,
           mediaUrl: data.url,
-        })); // Update both imageUrl and mediaUrl
+        }));
         toast.success("Image uploaded successfully!");
       } else {
         throw new Error("No URL returned from upload");
       }
     } catch (error) {
       console.error("Error uploading image:", error);
-      setError(
-        `Failed to upload image: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-      toast.error(
-        `Failed to upload image: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to upload image";
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -180,6 +187,12 @@ export default function CalendarPage() {
     if (!session?.user?.id || !session?.user?.email) {
       setError("Please log in to schedule a post");
       toast.error("Please log in to schedule a post");
+      return;
+    }
+
+    if (newPost.platform.includes("YOUTUBE") && !session?.user?.googleAccounts?.[0]?.id) {
+      setError("No Google account connected for YouTube. Please connect a Google account.");
+      toast.error("No Google account connected for YouTube. Please connect a Google account.");
       return;
     }
 
@@ -259,35 +272,18 @@ export default function CalendarPage() {
             return;
           }
           postData.mediaUrl = newPost.mediaUrl;
-          // Auto-post logic for YouTube (assuming API call for auto-post)
-          const autoPostResponse = await fetch("/api/youtube/autopost", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: newPost.content,
-              mediaUrl: newPost.mediaUrl,
-              description: newPost.description,
-              tags: newPost.tags.split(","),
-              privacyStatus: newPost.privacyStatus,
-              scheduledAt: scheduledAtLocal.toISOString().slice(0, -1),
-              googleAccountId: session?.user?.googleAccounts?.[0]?.id,
-            }),
-          });
-          if (!autoPostResponse.ok) {
-            const errorData = await autoPostResponse.json();
-            console.warn(`Auto-post failed for YouTube: ${errorData.error}`);
-            // Continue despite auto-post failure
-          }
+          // Skip SocialPost creation for YouTube since /api/upload handles it
+          continue;
         } else {
           if (!newPost.imageUrl) {
             setError("Image is required for other platforms");
             toast.error("Image is required for other platforms");
             return;
           }
-          postData.mediaUrl = newPost.imageUrl; // Save imageUrl as mediaUrl for non-YouTube platforms
+          postData.mediaUrl = newPost.imageUrl;
         }
 
-        // Save to SocialPost table
+        // Save to SocialPost table (for non-YouTube platforms)
         const socialResponse = await fetch("/api/calendar/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -303,14 +299,13 @@ export default function CalendarPage() {
         }
 
         const socialPostData = await socialResponse.json();
-
         const formattedPost: SocialPost = {
           id: socialPostData.id,
           content: socialPostData.content,
           platform: socialPostData.platform,
           scheduledAt: new Date(socialPostData.scheduledAt),
           mediaUrl: socialPostData.mediaUrl,
-          imageUrl: socialPostData.imageUrl,
+         
           userId: socialPostData.userId,
           status: socialPostData.status,
           projectId: socialPostData.projectId || null,
@@ -373,12 +368,10 @@ export default function CalendarPage() {
       toast.success("Posts scheduled successfully!");
     } catch (error) {
       console.error("Error creating post:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to create post"
-      );
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create post"
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create post";
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -422,14 +415,13 @@ export default function CalendarPage() {
       )}
       <SocialCalendar posts={posts} onButtonClick={handleButtonClick} />
 
-      <Transition appear show={isAddPostOpen} as={Fragment}>
+      <Transition appear show={isAddPostOpen} as="div">
         <Dialog
           as="div"
           className="relative z-10"
           onClose={() => setIsAddPostOpen(false)}
         >
           <Transition.Child
-            as={Fragment}
             enter="ease-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -443,7 +435,6 @@ export default function CalendarPage() {
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
               <Transition.Child
-                as={Fragment}
                 enter="ease-out duration-300"
                 enterFrom="opacity-0 scale-95"
                 enterTo="opacity-100 scale-100"
@@ -513,7 +504,10 @@ export default function CalendarPage() {
                         id="content"
                         value={newPost.content}
                         onChange={(e) =>
-                          setNewPost({ ...newPost, content: e.target.value })
+                          setNewPost((prev) => ({
+                            ...prev,
+                            content: e.target.value,
+                          }))
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                         rows={4}
@@ -532,7 +526,10 @@ export default function CalendarPage() {
                         type="text"
                         value={newPost.title}
                         onChange={(e) =>
-                          setNewPost({ ...newPost, title: e.target.value })
+                          setNewPost((prev) => ({
+                            ...prev,
+                            title: e.target.value,
+                          }))
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                         required
@@ -549,10 +546,10 @@ export default function CalendarPage() {
                         id="description"
                         value={newPost.description}
                         onChange={(e) =>
-                          setNewPost({
-                            ...newPost,
+                          setNewPost((prev) => ({
+                            ...prev,
                             description: e.target.value,
-                          })
+                          }))
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                         rows={4}
@@ -570,7 +567,10 @@ export default function CalendarPage() {
                         type="text"
                         value={newPost.hashtags}
                         onChange={(e) =>
-                          setNewPost({ ...newPost, hashtags: e.target.value })
+                          setNewPost((prev) => ({
+                            ...prev,
+                            hashtags: e.target.value,
+                          }))
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                       />
@@ -587,10 +587,10 @@ export default function CalendarPage() {
                         type="datetime-local"
                         value={newPost.scheduledAt}
                         onChange={(e) =>
-                          setNewPost({
-                            ...newPost,
+                          setNewPost((prev) => ({
+                            ...prev,
                             scheduledAt: e.target.value,
-                          })
+                          }))
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                         required
@@ -610,7 +610,10 @@ export default function CalendarPage() {
                             type="text"
                             value={newPost.tags}
                             onChange={(e) =>
-                              setNewPost({ ...newPost, tags: e.target.value })
+                              setNewPost((prev) => ({
+                                ...prev,
+                                tags: e.target.value,
+                              }))
                             }
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                             placeholder="tag1, tag2, tag3"
@@ -627,10 +630,10 @@ export default function CalendarPage() {
                             id="privacyStatus"
                             value={newPost.privacyStatus}
                             onChange={(e) =>
-                              setNewPost({
-                                ...newPost,
+                              setNewPost((prev) => ({
+                                ...prev,
                                 privacyStatus: e.target.value,
-                              })
+                              }))
                             }
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                           >
@@ -662,14 +665,18 @@ export default function CalendarPage() {
                         ["INSTAGRAM", "LINKEDIN", "FACEBOOK"].includes(p)
                       ) && (
                       <div>
-                        <label htmlFor="imageUrl" className="block mb-1">
+                        <label
+                          htmlFor="imageUrl"
+                          className="block mb-1 text-sm font-medium text-gray-700"
+                        >
                           Image Upload
                         </label>
                         <input
+                          id="imageUrl"
                           type="file"
                           accept="image/*"
                           onChange={handleImageUpload}
-                          className="border p-2 w-full"
+                          className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                         />
                       </div>
                     )}
@@ -679,6 +686,13 @@ export default function CalendarPage() {
                         className="inline-flex justify-center rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition duration-300"
                       >
                         Schedule Post
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddPostOpen(false)}
+                        className="inline-flex justify-center rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-400 transition duration-300"
+                      >
+                        Cancel
                       </button>
                     </div>
                   </form>

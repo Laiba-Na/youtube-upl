@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import ProfileSettings from "@/components/settings/ProfileSettings";
 import ConnectedAccounts from "@/components/settings/ConnectedAccounts";
 import NotificationSettings from "@/components/settings/NotificationSettings";
@@ -14,10 +15,15 @@ const tabs = [
   { name: "Notifications", icon: "🔔" },
   { name: "Team", icon: "👥" },
   { name: "Danger Zone", icon: "⚠️" },
+  { name: "Sign Out", icon: "🚪" },
 ];
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("Profile");
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -31,7 +37,13 @@ export default function SettingsPage() {
           {tabs.map((tab) => (
             <li key={tab.name}>
               <button
-                onClick={() => setActiveTab(tab.name)}
+                onClick={() => {
+                  if (tab.name === "Sign Out") {
+                    handleSignOut();
+                  } else {
+                    setActiveTab(tab.name);
+                  }
+                }}
                 className={`w-full flex items-center space-x-2 px-4 py-2 rounded-lg text-left transition-colors ${
                   activeTab === tab.name
                     ? "bg-indigo-600 text-white"

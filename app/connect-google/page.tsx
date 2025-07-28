@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
@@ -187,15 +187,6 @@ export default function ConnectGoogle() {
               ))}
             </ul>
           )}
-
-          <div className="mt-6 flex justify-center">
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              Sign out
-            </button>
-          </div>
         </div>
       </div>
     </div>

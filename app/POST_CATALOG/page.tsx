@@ -1,3 +1,4 @@
+// app/POST_CATALOG/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,6 +18,7 @@ export default function PostsPage() {
   const { data: session, status } = useSession();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -38,6 +40,32 @@ export default function PostsPage() {
       alert('Failed to load posts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) {
+      return;
+    }
+
+    setDeleting(postId);
+    try {
+      const res = await fetch(`/api/posts?id=${postId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to delete post');
+      }
+      
+      // Remove the deleted post from the state
+      setPosts(posts.filter(post => post.id !== postId));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -67,12 +95,25 @@ export default function PostsPage() {
                 Created at: {new Date(post.createdAt).toLocaleDateString()}
               </p>
               {post.hashtags && <p className="text-sm text-gray-500 mb-2">Hashtags: {post.hashtags}</p>}
-              <Link
-                href={`POST_MEDIA/PostMedia/${post.id}`}
-                className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Share
-              </Link>
+              <div className="flex justify-between mt-2">
+                <Link
+                  href={`POST_MEDIA/PostMedia/${post.id}`}
+                  className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Share
+                </Link>
+                <button
+                  onClick={() => handleDelete(post.id)}
+                  disabled={deleting === post.id}
+                  className={`px-4 py-2 rounded ${
+                    deleting === post.id
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                >
+                  {deleting === post.id ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

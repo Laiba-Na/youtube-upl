@@ -12,8 +12,22 @@ export async function POST(request: Request) {
     console.log("Starting video upload process");
 
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      console.log("Upload failed: User not authenticated");
+    console.log("Session data:", {
+      userId: session?.user?.id,
+      email: session?.user?.email,
+      googleAccounts: session?.user?.googleAccounts?.map((acc) => ({
+        id: acc.id,
+        googleEmail: acc.googleEmail,
+      })),
+    });
+
+    if (!session?.user?.id || !session?.user?.email) {
+      console.log("Upload failed: User not authenticated", {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        hasUserId: !!session?.user?.id,
+        hasEmail: !!session?.user?.email,
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -23,9 +37,9 @@ export async function POST(request: Request) {
     const file = formData.get("video") as File;
     const scheduledAt = formData.get("scheduledAt") as string;
     const content = formData.get("content") as string;
-    const description = (formData.get("description") as string) || content; // Default to content if no description
+    const description = (formData.get("description") as string) || content;
     const tags = formData.get("tags") as string;
-    const privacyStatus = (formData.get("privacyStatus") as string) || "public"; // Default to public
+    const privacyStatus = (formData.get("privacyStatus") as string) || "public";
     const googleAccountId = formData.get("googleAccountId") as string;
 
     console.log("Form data received:", {
@@ -39,7 +53,12 @@ export async function POST(request: Request) {
     });
 
     if (!file || !scheduledAt || !content || !googleAccountId) {
-      console.log("Upload failed: Missing required fields");
+      console.log("Upload failed: Missing required fields", {
+        hasFile: !!file,
+        hasScheduledAt: !!scheduledAt,
+        hasContent: !!content,
+        hasGoogleAccountId: !!googleAccountId,
+      });
       return NextResponse.json(
         {
           error:
@@ -50,22 +69,30 @@ export async function POST(request: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: session.user.id },
       select: { id: true, email: true },
     });
 
     if (!user) {
-      console.log("Upload failed: User not found in database");
+      console.log("Upload failed: User not found in database", {
+        userId: session.user.id,
+        email: session.user.email,
+      });
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    console.log("User found in database:", user);
+
     const googleAccount = await prisma.googleAccount.findFirst({
       where: { userId: user.id, id: googleAccountId },
-      select: { refreshToken: true },
+      select: { refreshToken: true, googleEmail: true },
     });
 
     if (!googleAccount) {
-      console.log("Upload failed: Google account not found");
+      console.log("Upload failed: Google account not found", {
+        userId: user.id,
+        googleAccountId,
+      });
       return NextResponse.json(
         {
           error:
@@ -74,6 +101,11 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
+
+    console.log("Google account found:", {
+      googleAccountId,
+      googleEmail: googleAccount.googleEmail,
+    });
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -107,8 +139,33 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const scheduledDate = new Date(scheduledAt);
+    if (isNaN(scheduledDate.getTime())) {
+      console.log("Upload failed: Invalid scheduledAt date");
+      return NextResponse.json(
+        { error: "Invalid scheduledAt date format" },
+        { status: 400 }
+      );
+    }
+
     const currentTime = new Date();
     const delay = scheduledDate.getTime() - currentTime.getTime();
+
+    // Create SocialPost record
+    const createSocialPost = async (videoId?: string, status: string = "SCHEDULED") => {
+      const socialPost = await prisma.socialPost.create({
+        data: {
+          content,
+          platform: "YOUTUBE",
+          scheduledAt: scheduledDate,
+          mediaUrl: videoId ? `https://youtube.com/watch?v=${videoId}` : null,
+          userId: user.id,
+          status,
+          projectId: null,
+        },
+      });
+      console.log("SocialPost created for YouTube:", socialPost);
+      return socialPost;
+    };
 
     if (delay <= 0) {
       const bufferStream = new Readable();
@@ -133,11 +190,19 @@ export async function POST(request: Request) {
 
       const videoId = res.data.id as string;
       console.log("Video uploaded successfully:", videoId);
+
+      // Create SocialPost record for immediate upload
+      await createSocialPost(videoId, "POSTED");
+
       return NextResponse.json(
         { url: `https://youtube.com/watch?v=${videoId}`, videoId },
         { status: 200 }
       );
     } else {
+      // Create SocialPost record for scheduled upload
+      await createSocialPost();
+
+      // Start the scheduled upload in the background
       scheduleUpload(
         youtube,
         buffer,
@@ -146,7 +211,9 @@ export async function POST(request: Request) {
         tags,
         privacyStatus,
         scheduledDate
-      );
+      ).catch((error) => {
+        console.error("Background scheduled upload failed:", error);
+      });
 
       return NextResponse.json(
         { url: null, message: `Video scheduled for upload at ${scheduledAt}` },
@@ -205,8 +272,37 @@ async function scheduleUpload(
 
       const videoId = res.data.id as string;
       console.log(`Video ${videoId} uploaded at ${new Date().toISOString()}`);
+
+      // Update SocialPost record to reflect posted status
+      await prisma.socialPost.updateMany({
+        where: {
+          userId: (await getServerSession(authOptions))?.user?.id,
+          platform: "YOUTUBE",
+          scheduledAt: scheduledDate,
+          content: content,
+        },
+        data: {
+          mediaUrl: `https://youtube.com/watch?v=${videoId}`,
+          status: "POSTED",
+        },
+      });
+      console.log("SocialPost updated for YouTube video:", videoId);
     } catch (error) {
       console.error("Scheduled upload failed:", error);
+      // Update SocialPost record to reflect failure
+      await prisma.socialPost.updateMany({
+        where: {
+          userId: (await getServerSession(authOptions))?.user?.id,
+          platform: "YOUTUBE",
+          scheduledAt: scheduledDate,
+          content: content,
+        },
+        data: {
+          status: "FAILED",
+        },
+      });
+      console.log("SocialPost updated to FAILED for YouTube video");
+      throw error;
     }
   }
 }

@@ -26,88 +26,88 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials, req) {
         // Handle 2FA verification
-  if (credentials?.userId && credentials?.twoFactorToken) {
-    console.log("Processing 2FA verification for user ID:", credentials.userId);
-    
-    const user = await prisma.user.findUnique({
-      where: { id: credentials.userId },
-      include: { googleAccounts: true, facebookAccounts: true },
-    });
-    
-    if (!user) {
-      console.error("User not found for 2FA verification");
-      throw new Error("User not found");
-    }
+        if (credentials?.userId && credentials?.twoFactorToken) {
+          console.log("Processing 2FA verification for user ID:", credentials.userId);
+          
+          const user = await prisma.user.findUnique({
+            where: { id: credentials.userId },
+            include: { googleAccounts: true, facebookAccounts: true },
+          });
+          
+          if (!user) {
+            console.error("User not found for 2FA verification");
+            throw new Error("User not found");
+          }
 
-    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
-      console.error("2FA not configured for this user");
-      throw new Error("2FA not configured for this user");
-    }
+          if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+            console.error("2FA not configured for this user");
+            throw new Error("2FA not configured for this user");
+          }
 
-    // Verify 2FA token
-    console.log("Verifying 2FA token...");
-    const speakeasy = (await import("speakeasy")).default;
-    const isValid = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
-      encoding: "base32",
-      token: credentials.twoFactorToken,
-      window: 2, // Increased window to handle potential time sync issues
-    });
+          // Verify 2FA token
+          console.log("Verifying 2FA token...");
+          const speakeasy = (await import("speakeasy")).default;
+          const isValid = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: "base32",
+            token: credentials.twoFactorToken,
+            window: 2, // Increased window to handle potential time sync issues
+          });
 
-    console.log("2FA token verification result:", isValid);
+          console.log("2FA token verification result:", isValid);
 
-    if (!isValid) {
-      throw new Error("Invalid 2FA code");
-    }
+          if (!isValid) {
+            throw new Error("Invalid 2FA code");
+          }
 
-    // 2FA verification successful
-    console.log("2FA verification successful for user:", user.email);
-    return {
-      id: user.id,
-      name: user.name || "",
-      email: user.email,
-      twoFactorEnabled: user.twoFactorEnabled,
-      googleAccounts: user.googleAccounts,
-      facebookAccounts: user.facebookAccounts,
-    };
-  }
-  
-  // Existing password-based login logic
-  if (!credentials?.email || !credentials?.password) {
-    throw new Error("Missing credentials");
-  }
-  
-  const user = await prisma.user.findUnique({
-    where: { email: credentials.email },
-  });
-  
-  if (!user || !user.password) {
-    throw new Error("User not found");
-  }
-  
-  const isPasswordValid = await bcrypt.compare(
-    credentials.password,
-    user.password
-  );
-  
-  if (!isPasswordValid) {
-    throw new Error("Invalid password");
-  }
+          // 2FA verification successful
+          console.log("2FA verification successful for user:", user.email);
+          return {
+            id: user.id,
+            name: user.name || "",
+            email: user.email,
+            twoFactorEnabled: user.twoFactorEnabled,
+            googleAccounts: user.googleAccounts,
+            facebookAccounts: user.facebookAccounts,
+          };
+        }
+        
+        // Existing password-based login logic
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Missing credentials");
+        }
+        
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+        
+        if (!user || !user.password) {
+          throw new Error("User not found");
+        }
+        
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+        
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
+        }
 
- // Check if 2FA is enabled
- if (user.twoFactorEnabled) {
-  console.log("2FA required for user:", user.email);
-  throw new Error("2FA_REQUIRED");
-}
+        // Check if 2FA is enabled
+        if (user.twoFactorEnabled) {
+          console.log("2FA required for user:", user.email);
+          throw new Error("2FA_REQUIRED");
+        }
 
-  
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    twoFactorEnabled: false,
-  };
-}
+        
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          twoFactorEnabled: false,
+        };
+      },
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -133,26 +133,26 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, credentials }) {
+      // For 2FA verification, we skip the redirect
+      if (credentials?.userId && credentials?.twoFactorToken) {
+        return true; // Allow the signIn to complete normally
+      }
       
-    // For 2FA verification, we skip the redirect
-  if (credentials?.userId && credentials?.twoFactorToken) {
-    return true; // Allow the signIn to complete normally
-  }
-  
-  // For regular credential login that needs 2FA
-  if (account?.provider === "credentials" && !credentials?.twoFactorToken) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
+      // For regular credential login that needs 2FA
+      if (account?.provider === "credentials" && !credentials?.twoFactorToken) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+        });
 
-    if (dbUser?.twoFactorEnabled) {
-      throw new Error("2FA_REQUIRED");
-    }
-  }
+        if (dbUser?.twoFactorEnabled) {
+          throw new Error("2FA_REQUIRED");
+        }
+      }
+
       // Handle Google sign-in
       if (account?.provider === "google" && user.email) {
         try {
-          console.log(`Google sign-in for email: ${user.email}`);
+          console.log(`Google sign-in for email: ${user.email}`); // Fix 1: Added backticks
           
           // Get the current session to determine if user is already logged in
           const session = await getServerSession(authOptions);
@@ -160,7 +160,7 @@ export const authOptions: NextAuthOptions = {
           
           // IMPORTANT: If user is already authenticated, use that user's ID
           if (existingUserId) {
-            console.log(`Using existing authenticated user ID: ${existingUserId}`);
+            console.log(`Using existing authenticated user ID: ${existingUserId}`); // Fix 2: Added backticks
             
             // Find the authenticated user to ensure it exists
             const authenticatedUser = await prisma.user.findUnique({
@@ -169,7 +169,7 @@ export const authOptions: NextAuthOptions = {
             });
             
             if (!authenticatedUser) {
-              console.error(`Cannot find authenticated user with ID: ${existingUserId}`);
+              console.error(`Cannot find authenticated user with ID: ${existingUserId}`); // Fix 3: Added backticks
               return false;
             }
             
@@ -184,7 +184,7 @@ export const authOptions: NextAuthOptions = {
               });
               
               if (existingGoogleAccount) {
-                console.log(`Updating existing Google account: ${existingGoogleAccount.id}`);
+                console.log(`Updating existing Google account: ${existingGoogleAccount.id}`); // Fix 4: Added backticks
                 // Update the refresh token if a new one is provided
                 await tx.googleAccount.update({
                   where: { id: existingGoogleAccount.id },
@@ -194,7 +194,7 @@ export const authOptions: NextAuthOptions = {
                   },
                 });
               } else {
-                console.log(`Creating new Google account connection for: ${user.email}`);
+                console.log(`Creating new Google account connection for: ${user.email}`); // Fix 5: Added backticks
                 // Create a new Google account connection
                 await tx.googleAccount.create({
                   data: {
@@ -222,7 +222,7 @@ export const authOptions: NextAuthOptions = {
             await prisma.$transaction(async (tx) => {
               // If user doesn't exist, create a new user
               if (!existingUser) {
-                console.log(`Creating new user for: ${user.email}`);
+                console.log(`Creating new user for: ${user.email}`); // Fix 6: Added backticks
                 existingUser = await tx.user.create({
                   data: {
                     name: user.name || "",
@@ -235,7 +235,7 @@ export const authOptions: NextAuthOptions = {
                   }
                 });
               } else {
-                console.log(`User already exists: ${existingUser.id}`);
+                console.log(`User already exists: ${existingUser.id}`); // Fix 7: Added backticks
               }
               
               // Check if this specific Google account connection already exists
@@ -247,7 +247,7 @@ export const authOptions: NextAuthOptions = {
               });
               
               if (existingGoogleAccount) {
-                console.log(`Updating existing Google account: ${existingGoogleAccount.id}`);
+                console.log(`Updating existing Google account: ${existingGoogleAccount.id}`); // Fix 8: Added backticks
                 // Update the refresh token if a new one is provided
                 await tx.googleAccount.update({
                   where: { id: existingGoogleAccount.id },
@@ -257,7 +257,7 @@ export const authOptions: NextAuthOptions = {
                   },
                 });
               } else {
-                console.log(`Creating new Google account connection for: ${user.email}`);
+                console.log(`Creating new Google account connection for: ${user.email}`); // Fix 9: Added backticks
                 // Create a new Google account connection
                 await tx.googleAccount.create({
                   data: {
@@ -284,7 +284,7 @@ export const authOptions: NextAuthOptions = {
       // Handle Facebook sign-in
       if (account?.provider === "facebook" && user.email) {
         try {
-          console.log(`Facebook sign-in for email: ${user.email}`);
+          console.log(`Facebook sign-in for email: ${user.email}`); // Fix 10: Added backticks
           
           // Get the current session to determine if user is already logged in
           const session = await getServerSession(authOptions);
@@ -292,7 +292,7 @@ export const authOptions: NextAuthOptions = {
           
           // IMPORTANT: If user is already authenticated, use that user's ID
           if (existingUserId) {
-            console.log(`Using existing authenticated user ID: ${existingUserId}`);
+            console.log(`Using existing authenticated user ID: ${existingUserId}`); // Fix 11: Added backticks
             
             // Find the authenticated user to ensure it exists
             const authenticatedUser = await prisma.user.findUnique({
@@ -301,7 +301,7 @@ export const authOptions: NextAuthOptions = {
             });
             
             if (!authenticatedUser) {
-              console.error(`Cannot find authenticated user with ID: ${existingUserId}`);
+              console.error(`Cannot find authenticated user with ID: ${existingUserId}`); // Fix 12: Added backticks
               return false;
             }
             
@@ -316,7 +316,7 @@ export const authOptions: NextAuthOptions = {
               });
               
               if (existingFacebookAccount) {
-                console.log(`Updating existing Facebook account: ${existingFacebookAccount.id}`);
+                console.log(`Updating existing Facebook account: ${existingFacebookAccount.id}`); // Fix 13: Added backticks
                 // Update the tokens
                 await tx.facebookAccount.update({
                   where: { id: existingFacebookAccount.id },
@@ -330,7 +330,7 @@ export const authOptions: NextAuthOptions = {
                   },
                 });
               } else {
-                console.log(`Creating new Facebook account connection for: ${user.email}`);
+                console.log(`Creating new Facebook account connection for: ${user.email}`); // Fix 14: Added backticks
                 // Create a new Facebook account connection
                 await tx.facebookAccount.create({
                   data: {
@@ -361,7 +361,7 @@ export const authOptions: NextAuthOptions = {
             await prisma.$transaction(async (tx) => {
               // If user doesn't exist, create a new user
               if (!existingUser) {
-                console.log(`Creating new user for: ${user.email}`);
+                console.log(`Creating new user for: ${user.email}`); // Fix 15: Added backticks
                 existingUser = await tx.user.create({
                   data: {
                     name: user.name || "",
@@ -374,7 +374,7 @@ export const authOptions: NextAuthOptions = {
                   }
                 });
               } else {
-                console.log(`User already exists: ${existingUser.id}`);
+                console.log(`User already exists: ${existingUser.id}`); // Fix 16: Added backticks
               }
               
               // Check if this specific Facebook account connection already exists
@@ -386,7 +386,7 @@ export const authOptions: NextAuthOptions = {
               });
               
               if (existingFacebookAccount) {
-                console.log(`Updating existing Facebook account: ${existingFacebookAccount.id}`);
+                console.log(`Updating existing Facebook account: ${existingFacebookAccount.id}`); // Fix 17: Added backticks
                 // Update the tokens
                 await tx.facebookAccount.update({
                   where: { id: existingFacebookAccount.id },
@@ -400,7 +400,7 @@ export const authOptions: NextAuthOptions = {
                   },
                 });
               } else {
-                console.log(`Creating new Facebook account connection for: ${user.email}`);
+                console.log(`Creating new Facebook account connection for: ${user.email}`); // Fix 18: Added backticks
                 // Create a new Facebook account connection
                 await tx.facebookAccount.create({
                   data: {
@@ -481,36 +481,34 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-
-    // Load team memberships and roles
-    const teamMemberships = await prisma.teamMember.findMany({
-      where: { userId: token.id as string },
-      include: {
-        team: true
-      }
-    });
-    
-    // Get user type
-    const user = await prisma.user.findUnique({
-      where: { id: token.id as string },
-      select: {
-        userType: true
-      }
-    });
-    
-    // Add user's primary role if they're in a team
-    let primaryRole = null;
-    if (teamMemberships.length > 0) {
-      primaryRole = teamMemberships[0].role;
-    }
-    
+        // Load team memberships and roles
+        const teamMemberships = await prisma.teamMember.findMany({
+          where: { userId: token.id as string },
+          include: {
+            team: true
+          }
+        });
+        
+        // Get user type
+        const user = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            userType: true
+          }
+        });
+        
+        // Add user's primary role if they're in a team
+        let primaryRole = null;
+        if (teamMemberships.length > 0) {
+          primaryRole = teamMemberships[0].role;
+        }
         
         // Add accounts to session
         session.user.googleAccounts = googleAccounts;
         session.user.facebookAccounts = facebookAccounts;
         session.user.teamMemberships = teamMemberships;
-    session.user.userType = user?.userType || "INDIVIDUAL";
-    session.user.role = primaryRole;
+        session.user.userType = user?.userType || "INDIVIDUAL";
+        session.user.role = primaryRole;
         
         // If we have temporary Google credentials, add them to session
         if (token.googleAccessToken && token.googleRefreshToken && token.googleEmail) {

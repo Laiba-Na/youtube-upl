@@ -1,3 +1,4 @@
+// components/ConnectedAccounts.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -31,11 +32,6 @@ export default function ConnectedAccounts() {
           id: acc.id,
           provider: "Google",
           name: acc.googleEmail,
-        })) || []),
-        ...(session?.user?.facebookAccounts?.map((acc: any) => ({
-          id: acc.id,
-          provider: "Facebook",
-          name: acc.pageName || "Facebook Account",
         })) || []),
       ];
       setAccounts(formattedAccounts);
@@ -74,7 +70,11 @@ export default function ConnectedAccounts() {
   };
 
   const handleEnable2FA = () => {
-    router.push("/SETTINGS/2fa");
+    router.push("/settings/2fa"); // Fix 1: Fixed case sensitivity in route
+  };
+
+  const handleConnectOtherSocials = () => {
+    router.push("/social-links"); // Fix 2: Added navigation to /social-links
   };
 
   return (
@@ -94,7 +94,7 @@ export default function ConnectedAccounts() {
           </p>
         ) : (
           <div className="space-y-4">
-            {["Google", "Facebook"].map((provider) => {
+            {["Google"].map((provider) => { // Fix 3: Removed Facebook from providers
               const connectedAccounts = accounts.filter(
                 (acc) => acc.provider === provider
               );
@@ -144,6 +144,14 @@ export default function ConnectedAccounts() {
                 </div>
               );
             })}
+            <div className="pt-4">
+              <button
+                onClick={handleConnectOtherSocials}
+                className="text-blue-600 border border-blue-600 px-4 py-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              >
+                Connect Other Social Media
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -175,3 +183,4 @@ export default function ConnectedAccounts() {
     </div>
   );
 }
+
