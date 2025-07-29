@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useDarkMode } from '@/app/DarkModeContext';
+import { useRouter } from "next/navigation";
+import { useDarkMode } from "@/app/DarkModeContext";
 
 export default function TeamSettings() {
   const { darkMode } = useDarkMode();
   const router = useRouter();
 
   const handleTeamSetup = () => {
-    router.push('/settings/team-setup');
+    router.push("/SETTINGS/TEAM_SETUP");
   };
 
   return (

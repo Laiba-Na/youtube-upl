@@ -1,32 +1,35 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Toaster } from 'react-hot-toast';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Toaster } from "react-hot-toast";
 
 export default function TwoFactorSetup() {
   const router = useRouter();
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [secret, setSecret] = useState('');
-  const [token, setToken] = useState('');
-  const [error, setError] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [secret, setSecret] = useState("");
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchQrCode = async () => {
       try {
-        const response = await fetch('/api/auth/2fa/setup', { credentials: 'include' });
+        const response = await fetch("/api/auth/2fa/setup", {
+          credentials: "include",
+        });
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to generate QR code');
+          throw new Error(errorData.error || "Failed to generate QR code");
         }
         const data = await response.json();
         setQrCodeUrl(data.qrCodeUrl);
         setSecret(data.secret);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
+        const errorMessage =
+          err instanceof Error ? err.message : "Something went wrong";
         setError(errorMessage);
         toast.error(errorMessage);
       }
@@ -37,25 +40,26 @@ export default function TwoFactorSetup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await fetch('/api/auth/2fa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Invalid 2FA code');
+        throw new Error(errorData.error || "Invalid 2FA code");
       }
 
-      toast.success('Two-factor authentication enabled!');
-      router.push('/settings/2fa-success?2fa=enabled');
+      toast.success("Two-factor authentication enabled!");
+      router.push("/SETTINGS/2fa-success?2fa=enabled");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
+      const errorMessage =
+        err instanceof Error ? err.message : "Something went wrong";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -76,7 +80,11 @@ export default function TwoFactorSetup() {
 
         {qrCodeUrl ? (
           <div className="flex justify-center mb-6">
-            <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48 rounded-lg border border-gray-300" />
+            <img
+              src={qrCodeUrl}
+              alt="2FA QR Code"
+              className="w-48 h-48 rounded-lg border border-gray-300"
+            />
           </div>
         ) : (
           <div className="flex justify-center mb-6">
@@ -86,7 +94,8 @@ export default function TwoFactorSetup() {
 
         {secret && (
           <p className="text-gray-500 text-center mb-6 text-sm">
-            Or manually enter this key: <strong className="text-textBlack">{secret}</strong>
+            Or manually enter this key:{" "}
+            <strong className="text-textBlack">{secret}</strong>
           </p>
         )}
 
@@ -122,7 +131,7 @@ export default function TwoFactorSetup() {
             type="submit"
             disabled={isLoading}
             className="w-full py-3 px-4 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-highlightBlue disabled:bg-primaryPurple/50 transition-all duration-200"
-            aria-label={isLoading ? 'Enabling 2FA' : 'Enable 2FA'}
+            aria-label={isLoading ? "Enabling 2FA" : "Enable 2FA"}
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -130,7 +139,7 @@ export default function TwoFactorSetup() {
                 Enabling 2FA...
               </span>
             ) : (
-              'Enable 2FA'
+              "Enable 2FA"
             )}
           </button>
         </form>

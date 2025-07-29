@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSession, signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { useDarkMode } from '@/app/DarkModeContext';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useEffect, useState } from "react";
+import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { useDarkMode } from "@/app/DarkModeContext";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface GoogleAccount {
   id: string;
@@ -37,41 +37,42 @@ export default function ConnectedAccounts() {
       const formattedAccounts: Account[] = [
         ...(session?.user?.googleAccounts?.map((acc: GoogleAccount) => ({
           id: acc.id,
-          provider: 'Google',
+          provider: "Google",
           name: acc.googleEmail,
         })) || []),
       ];
       setAccounts(formattedAccounts);
     } catch (err) {
-      toast.error('Failed to load connected accounts');
+      toast.error("Failed to load connected accounts");
     } finally {
       setLoading(false);
     }
   };
 
   const handleConnect = (provider: string) => {
-    signIn(provider.toLowerCase(), { callbackUrl: '/settings' });
+    signIn(provider.toLowerCase(), { callbackUrl: "/settings" });
   };
 
   const handleDisconnect = async (accountId: string, provider: string) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/${provider.toLowerCase()}/accounts`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId }),
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to disconnect account');
+        throw new Error(errorData.error || "Failed to disconnect account");
       }
 
       toast.success(`${provider} account disconnected`);
       loadAccountsFromSession();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to disconnect account';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to disconnect account";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -79,11 +80,11 @@ export default function ConnectedAccounts() {
   };
 
   const handleEnable2FA = () => {
-    router.push('/settings/2fa');
+    router.push("/SETTINGS/2fa");
   };
 
   const handleConnectOtherSocials = () => {
-    router.push('/social-links');
+    router.push("/social-links");
   };
 
   return (
@@ -97,15 +98,19 @@ export default function ConnectedAccounts() {
         <h3 className="text-xl font-medium mb-4 text-textBlack dark:text-white">
           Social Accounts
         </h3>
-        {loading || status === 'loading' ? (
+        {loading || status === "loading" ? (
           <div className="flex items-center">
             <LoadingSpinner size="sm" className="text-primaryPurple mr-2" />
-            <p className="text-gray-500 dark:text-gray-400">Loading accounts...</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              Loading accounts...
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {['Google'].map((provider) => {
-              const connectedAccounts = accounts.filter((acc) => acc.provider === provider);
+            {["Google"].map((provider) => {
+              const connectedAccounts = accounts.filter(
+                (acc) => acc.provider === provider
+              );
               return (
                 <div
                   key={provider}
@@ -113,14 +118,18 @@ export default function ConnectedAccounts() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-textBlack dark:text-white">{provider}</p>
+                      <p className="font-medium text-textBlack dark:text-white">
+                        {provider}
+                      </p>
                       {connectedAccounts.length > 0 ? (
                         connectedAccounts.map((acc) => (
                           <div
                             key={acc.id}
                             className="flex items-center justify-between mt-2"
                           >
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{acc.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {acc.name}
+                            </p>
                             <button
                               onClick={() => handleDisconnect(acc.id, provider)}
                               disabled={loading}
@@ -132,7 +141,9 @@ export default function ConnectedAccounts() {
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Not Connected</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Not Connected
+                        </p>
                       )}
                     </div>
                     {connectedAccounts.length === 0 && (
@@ -178,9 +189,13 @@ export default function ConnectedAccounts() {
           <button
             onClick={handleEnable2FA}
             className="px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200"
-            aria-label={session?.user?.twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
+            aria-label={
+              session?.user?.twoFactorEnabled ? "Manage 2FA" : "Enable 2FA"
+            }
           >
-            {session?.user?.twoFactorEnabled ? 'Manage Two-Factor Authentication' : 'Enable Two-Factor Authentication'}
+            {session?.user?.twoFactorEnabled
+              ? "Manage Two-Factor Authentication"
+              : "Enable Two-Factor Authentication"}
           </button>
         </div>
       </section>
