@@ -8,6 +8,7 @@ import ConnectedAccounts from '@/components/settings/ConnectedAccounts';
 import NotificationSettings from '@/components/settings/NotificationSettings';
 import TeamSettings from '@/components/settings/TeamSettings';
 import DangerZone from '@/components/settings/DangerZone';
+import ContactUs from '@/components/settings/ContactUs'; // Add this import
 import TopBar from '@/components/TopBar';
 import Sidebar from '@/components/sideBar';
 import { Menu } from 'lucide-react';
@@ -18,6 +19,7 @@ const tabs = [
   { name: 'Connected Accounts', icon: '🔗' },
   { name: 'Notifications', icon: '🔔' },
   { name: 'Team', icon: '👥' },
+  { name: 'Contact Us', icon: '✉️' }, // Add this new tab
   { name: 'Danger Zone', icon: '⚠️' },
   { name: 'Sign Out', icon: '🚪' },
 ];
@@ -85,6 +87,7 @@ export default function SettingsPage() {
                 {activeTab === 'Connected Accounts' && <ConnectedAccounts />}
                 {activeTab === 'Notifications' && <NotificationSettings />}
                 {activeTab === 'Team' && <TeamSettings />}
+                {activeTab === 'Contact Us' && <ContactUs />} {/* Add this line */}
                 {activeTab === 'Danger Zone' && <DangerZone />}
               </div>
             </div>
