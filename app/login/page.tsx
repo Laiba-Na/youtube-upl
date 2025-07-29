@@ -175,14 +175,14 @@ export default function Login() {
               />
             </div>
 
-            <div className="text-right text-sm">
-              <Link
-                href="#"
-                className="font-medium text-primaryPurple hover:text-highlightBlue dark:hover:text-highlightBlue transition-colors duration-200"
-              >
-                Forgot Username / Password?
-              </Link>
-            </div>
+<div className="text-right text-sm">
+  <Link
+    href="/forgot-password"
+    className="font-medium text-primaryPurple hover:text-highlightBlue dark:hover:text-highlightBlue transition-colors duration-200"
+  >
+    Forgot Username / Password?
+  </Link>
+</div>
 
             <button
               type="submit"
