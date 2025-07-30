@@ -29,6 +29,8 @@
     "ffmpeg.js": "^4.2.9003",
     "gifshot": "^0.4.5",
     "googleapis": "^148.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
     "konva": "^9.3.20",
     "lucide-react": "^0.487.0",
     "multer": "^1.4.5-lts.2",

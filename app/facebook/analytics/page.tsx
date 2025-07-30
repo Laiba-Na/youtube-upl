@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useDarkMode } from '@/app/DarkModeContext';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import Link from 'next/link';
-import TopBar from '@/components/TopBar';
-import Sidebar from '@/components/sideBar';
-import { Menu } from 'lucide-react';
-import { Bar } from 'react-chartjs-2';
+import { useSession } from "next-auth/react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useDarkMode } from "@/app/DarkModeContext";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import Link from "next/link";
+import TopBar from "@/components/TopBar";
+import Sidebar from "@/components/sideBar";
+import { Menu, Download } from "lucide-react";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,9 +18,17 @@ import {
   Title,
   Tooltip,
   Legend,
-} from 'chart.js';
+} from "chart.js";
+import { generateFacebookReport } from "@/utils/generateReport";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface FacebookInsight {
   name: string;
@@ -53,12 +61,17 @@ interface FacebookPageData {
 export default function FacebookAnalytics() {
   const { data: session, status } = useSession();
   const { darkMode } = useDarkMode();
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null
+  );
   const [pageData, setPageData] = useState<FacebookPageData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const router = useRouter();
+
+  const impressionsChartRef = useRef<HTMLDivElement>(null);
+  const engagedUsersChartRef = useRef<HTMLDivElement>(null);
 
   //@ts-ignore
   const facebookAccounts: { id: string; pageName?: string; pageId: string }[] =
@@ -81,30 +94,38 @@ export default function FacebookAnalytics() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/facebook/insights?facebookAccountId=${accountId}`);
+      const response = await fetch(
+        `/api/facebook/insights?facebookAccountId=${accountId}`
+      );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch Facebook insights');
+        throw new Error(
+          errorData.message || "Failed to fetch Facebook insights"
+        );
       }
       const data: FacebookPageData = await response.json();
       setPageData(data);
     } catch (err: unknown) {
-      console.error('Error fetching Facebook insights:', err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      console.error("Error fetching Facebook insights:", err);
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDisconnect = async (facebookAccountId: string): Promise<void> => {
-    if (!confirm('Are you sure you want to disconnect this Facebook account?')) {
+    if (
+      !confirm("Are you sure you want to disconnect this Facebook account?")
+    ) {
       return;
     }
     try {
-      const response = await fetch('/api/facebook/disconnect', {
-        method: 'POST',
+      const response = await fetch("/api/facebook/disconnect", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ facebookAccountId }),
       });
@@ -112,19 +133,29 @@ export default function FacebookAnalytics() {
         router.refresh();
       } else {
         const errorData = await response.json();
-        setError(errorData.message || 'Failed to disconnect Facebook account');
+        setError(errorData.message || "Failed to disconnect Facebook account");
       }
     } catch (err: unknown) {
-      console.error('Error disconnecting Facebook account:', err);
-      setError('An error occurred while disconnecting the account');
+      console.error("Error disconnecting Facebook account:", err);
+      setError("An error occurred while disconnecting the account");
     }
   };
 
-  const sumValues = (values: { value: number; end_time?: string }[]): number => {
+  const handleDownloadReport = async () => {
+    if (!pageData) return;
+    await generateFacebookReport(pageData, {
+      impressions: impressionsChartRef.current,
+      engagedUsers: engagedUsersChartRef.current,
+    });
+  };
+
+  const sumValues = (
+    values: { value: number; end_time?: string }[]
+  ): number => {
     return values.reduce((sum, item) => sum + (item.value || 0), 0);
   };
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <LoadingSpinner size="lg" className="text-primaryPurple" />
@@ -132,11 +163,11 @@ export default function FacebookAnalytics() {
     );
   }
 
-  if (status === 'unauthenticated') {
+  if (status === "unauthenticated") {
     return (
       <div
         className={`min-h-screen ${
-          darkMode ? 'bg-gray-900' : 'bg-gray-50'
+          darkMode ? "bg-gray-900" : "bg-gray-50"
         } flex flex-col items-center justify-center p-4`}
       >
         <h1 className="text-2xl font-bold mb-4 text-textBlack dark:text-white">
@@ -146,7 +177,7 @@ export default function FacebookAnalytics() {
           You need to sign in to view Facebook analytics.
         </p>
         <button
-          onClick={() => router.push('/login')}
+          onClick={() => router.push("/login")}
           className="px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200"
           aria-label="Go to login"
         >
@@ -159,14 +190,19 @@ export default function FacebookAnalytics() {
   if (!hasConnectedFacebook) {
     return (
       <div
-        className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}
+        className={`min-h-screen ${
+          darkMode ? "bg-gray-900" : "bg-gray-50"
+        } transition-colors duration-300`}
       >
         <TopBar />
         <div className="flex">
-          <Sidebar isMobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar
+            isMobileOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+          />
           <button
             className={`lg:hidden fixed top-4 right-4 z-50 p-2 text-white bg-primaryPurple rounded-full hover:bg-highlightBlue transition-all duration-200 ${
-              isSidebarOpen ? 'hidden' : 'block'
+              isSidebarOpen ? "hidden" : "block"
             }`}
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Open sidebar"
@@ -195,43 +231,58 @@ export default function FacebookAnalytics() {
     );
   }
 
-  const impressionsData = pageData?.insights.find((i) => i.name === 'page_impressions')?.values.slice(-14) || [];
-  const engagedUsersData = pageData?.insights.find((i) => i.name === 'page_engaged_users')?.values.slice(-14) || [];
+  const impressionsData =
+    pageData?.insights
+      .find((i) => i.name === "page_impressions")
+      ?.values.slice(-14) || [];
+  const engagedUsersData =
+    pageData?.insights
+      .find((i) => i.name === "page_engaged_users")
+      ?.values.slice(-14) || [];
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
       x: {
-        title: { display: true, text: 'Date', color: darkMode ? '#F3F4F6' : '#1F2A44' },
-        ticks: { color: darkMode ? '#F3F4F6' : '#1F2A44' },
+        title: {
+          display: true,
+          text: "Date",
+          color: darkMode ? "#F3F4F6" : "#1F2A44",
+        },
+        ticks: { color: darkMode ? "#F3F4F6" : "#1F2A44" },
       },
       y: {
-        title: { display: true, color: darkMode ? '#F3F4F6' : '#1F2A44' },
-        ticks: { color: darkMode ? '#F3F4F6' : '#1F2A44' },
+        title: { display: true, color: darkMode ? "#F3F4F6" : "#1F2A44" },
+        ticks: { color: darkMode ? "#F3F4F6" : "#1F2A44" },
         beginAtZero: true,
       },
     },
     plugins: {
-      legend: { labels: { color: darkMode ? '#F3F4F6' : '#1F2A44' } },
+      legend: { labels: { color: darkMode ? "#F3F4F6" : "#1F2A44" } },
       tooltip: {
-        backgroundColor: darkMode ? '#1F2937' : '#FFFFFF',
-        titleColor: darkMode ? '#F3F4F6' : '#1F2A44',
-        bodyColor: darkMode ? '#F3F4F6' : '#1F2A44',
+        backgroundColor: darkMode ? "#1F2937" : "#FFFFFF",
+        titleColor: darkMode ? "#F3F4F6" : "#1F2A44",
+        bodyColor: darkMode ? "#F3F4F6" : "#1F2A44",
       },
     },
   };
 
   return (
     <div
-      className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}
+      className={`min-h-screen ${
+        darkMode ? "bg-gray-900" : "bg-gray-50"
+      } transition-colors duration-300`}
     >
       <TopBar />
       <div className="flex">
-        <Sidebar isMobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <Sidebar
+          isMobileOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
         <button
           className={`lg:hidden fixed top-4 right-4 z-50 p-2 text-white bg-primaryPurple rounded-full hover:bg-highlightBlue transition-all duration-200 ${
-            isSidebarOpen ? 'hidden' : 'block'
+            isSidebarOpen ? "hidden" : "block"
           }`}
           onClick={() => setIsSidebarOpen(true)}
           aria-label="Open sidebar"
@@ -239,7 +290,9 @@ export default function FacebookAnalytics() {
           <Menu className="h-6 w-6" />
         </button>
         <main className="flex-1 p-6 lg:p-8">
-          <h1 className="text-2xl font-bold mb-6 text-textBlack dark:text-white">Facebook Analytics</h1>
+          <h1 className="text-2xl font-bold mb-6 text-textBlack dark:text-white">
+            Facebook Analytics
+          </h1>
 
           {error && (
             <div className="bg-red-100 dark:bg-red-900 border-l-4 border-primaryRed text-primaryRed dark:text-red-200 px-4 py-3 rounded-2xl mb-6">
@@ -248,9 +301,22 @@ export default function FacebookAnalytics() {
           )}
 
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-textBlack dark:text-white">
-              Connected Facebook Accounts
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-textBlack dark:text-white">
+                Connected Facebook Accounts
+              </h2>
+              {selectedAccountId && pageData && (
+                <button
+                  onClick={handleDownloadReport}
+                  disabled={isLoading || !pageData}
+                  className="inline-flex items-center px-4 py-2 bg-primaryPurple text-white rounded-lg hover:bg-highlightBlue hover:shadow-md transition-all duration-200 disabled:opacity-50"
+                  aria-label="Download report"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Report
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {facebookAccounts.map((account) => (
                 <div
@@ -264,17 +330,21 @@ export default function FacebookAnalytics() {
                     onClick={() => setSelectedAccountId(account.id)}
                     className={`px-4 py-2 rounded-lg mb-2 ${
                       selectedAccountId === account.id
-                        ? 'bg-primaryPurple text-white hover:bg-highlightBlue'
-                        : 'bg-gray-200 dark:bg-gray-700 text-textBlack dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                        ? "bg-primaryPurple text-white hover:bg-highlightBlue"
+                        : "bg-gray-200 dark:bg-gray-700 text-textBlack dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
                     } transition-all duration-200`}
-                    aria-label={`Select account ${account.pageName || account.pageId}`}
+                    aria-label={`Select account ${
+                      account.pageName || account.pageId
+                    }`}
                   >
-                    {selectedAccountId === account.id ? 'Selected' : 'Select'}
+                    {selectedAccountId === account.id ? "Selected" : "Select"}
                   </button>
                   <button
                     onClick={() => handleDisconnect(account.id)}
                     className="px-4 py-2 bg-primaryRed text-white rounded-lg hover:bg-red-600 hover:shadow-md transition-all duration-200 absolute top-2 right-2"
-                    aria-label={`Disconnect account ${account.pageName || account.pageId}`}
+                    aria-label={`Disconnect account ${
+                      account.pageName || account.pageId
+                    }`}
                   >
                     Disconnect
                   </button>
@@ -289,28 +359,40 @@ export default function FacebookAnalytics() {
             </div>
           ) : selectedAccountId && pageData ? (
             <div className="space-y-8">
-              <h2 className="text-xl font-semibold text-textBlack dark:text-white">{pageData.pageName}</h2>
+              <h2 className="text-xl font-semibold text-textBlack dark:text-white">
+                {pageData.pageName}
+              </h2>
 
               <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">Page Insights</h3>
+                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">
+                  Page Insights
+                </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                    <h4 className="font-medium text-textBlack dark:text-white mb-4">Page Impressions</h4>
+                  <div
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6"
+                    ref={impressionsChartRef}
+                  >
+                    <h4 className="font-medium text-textBlack dark:text-white mb-4">
+                      Page Impressions
+                    </h4>
                     <div className="h-80">
                       <Bar
                         data={{
                           labels: impressionsData.map((item) =>
-                            new Date(item.end_time).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                            })
+                            new Date(item.end_time).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )
                           ),
                           datasets: [
                             {
-                              label: 'Impressions',
+                              label: "Impressions",
                               data: impressionsData.map((item) => item.value),
-                              backgroundColor: '#3B82F6',
-                              borderColor: '#1E40AF',
+                              backgroundColor: "#3B82F6",
+                              borderColor: "#1E40AF",
                               borderWidth: 1,
                             },
                           ],
@@ -321,7 +403,10 @@ export default function FacebookAnalytics() {
                             ...chartOptions.scales,
                             y: {
                               ...chartOptions.scales.y,
-                              title: { ...chartOptions.scales.y.title, text: 'Impressions' },
+                              title: {
+                                ...chartOptions.scales.y.title,
+                                text: "Impressions",
+                              },
                             },
                           },
                         }}
@@ -329,23 +414,31 @@ export default function FacebookAnalytics() {
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                    <h4 className="font-medium text-textBlack dark:text-white mb-4">Engaged Users</h4>
+                  <div
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6"
+                    ref={engagedUsersChartRef}
+                  >
+                    <h4 className="font-medium text-textBlack dark:text-white mb-4">
+                      Engaged Users
+                    </h4>
                     <div className="h-80">
                       <Bar
                         data={{
                           labels: engagedUsersData.map((item) =>
-                            new Date(item.end_time).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                            })
+                            new Date(item.end_time).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )
                           ),
                           datasets: [
                             {
-                              label: 'Engaged Users',
+                              label: "Engaged Users",
                               data: engagedUsersData.map((item) => item.value),
-                              backgroundColor: '#9C27B0',
-                              borderColor: '#6B21A8',
+                              backgroundColor: "#9C27B0",
+                              borderColor: "#6B21A8",
                               borderWidth: 1,
                             },
                           ],
@@ -356,7 +449,10 @@ export default function FacebookAnalytics() {
                             ...chartOptions.scales,
                             y: {
                               ...chartOptions.scales.y,
-                              title: { ...chartOptions.scales.y.title, text: 'Users' },
+                              title: {
+                                ...chartOptions.scales.y.title,
+                                text: "Users",
+                              },
                             },
                           },
                         }}
@@ -367,29 +463,42 @@ export default function FacebookAnalytics() {
               </div>
 
               <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">Key Metrics</h3>
+                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">
+                  Key Metrics
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   <MetricCard
                     title="Page Fans"
-                    value={pageData.insights.find((i) => i.name === 'page_fans')?.values[0]?.value || 0}
+                    value={
+                      pageData.insights.find((i) => i.name === "page_fans")
+                        ?.values[0]?.value || 0
+                    }
                     icon="👥"
                   />
                   <MetricCard
                     title="Total Impressions"
-                    value={sumValues(pageData.insights.find((i) => i.name === 'page_impressions')?.values || [])}
+                    value={sumValues(
+                      pageData.insights.find(
+                        (i) => i.name === "page_impressions"
+                      )?.values || []
+                    )}
                     icon="👁️"
                   />
                   <MetricCard
                     title="Unique Impressions"
                     value={sumValues(
-                      pageData.insights.find((i) => i.name === 'page_impressions_unique')?.values || []
+                      pageData.insights.find(
+                        (i) => i.name === "page_impressions_unique"
+                      )?.values || []
                     )}
                     icon="🔍"
                   />
                   <MetricCard
                     title="Post Engagements"
                     value={sumValues(
-                      pageData.insights.find((i) => i.name === 'page_post_engagements')?.values || []
+                      pageData.insights.find(
+                        (i) => i.name === "page_post_engagements"
+                      )?.values || []
                     )}
                     icon="❤️"
                   />
@@ -397,7 +506,9 @@ export default function FacebookAnalytics() {
               </div>
 
               <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">Recent Posts</h3>
+                <h3 className="text-lg font-semibold mb-4 text-textBlack dark:text-white">
+                  Recent Posts
+                </h3>
                 {pageData.posts.length > 0 ? (
                   <div className="space-y-6">
                     {pageData.posts.map((post) => (
@@ -405,24 +516,33 @@ export default function FacebookAnalytics() {
                         key={post.id}
                         className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all duration-200"
                       >
-                        <p className="text-textBlack dark:text-white mb-2">{post.message || '(No message)'}</p>
+                        <p className="text-textBlack dark:text-white mb-2">
+                          {post.message || "(No message)"}
+                        </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                          Posted on {new Date(post.created_time).toLocaleDateString()}
+                          Posted on{" "}
+                          {new Date(post.created_time).toLocaleDateString()}
                         </p>
                         {post.insights && (
                           <div className="grid grid-cols-2 gap-4">
                             <div className="text-center">
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Impressions</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Impressions
+                              </p>
                               <p className="font-semibold text-textBlack dark:text-white">
-                                {post.insights.data.find((i) => i.name === 'post_impressions')?.values[0]
-                                  ?.value || 0}
+                                {post.insights.data.find(
+                                  (i) => i.name === "post_impressions"
+                                )?.values[0]?.value || 0}
                               </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Unique Views</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Unique Views
+                              </p>
                               <p className="font-semibold text-textBlack dark:text-white">
-                                {post.insights.data.find((i) => i.name === 'post_impressions_unique')
-                                  ?.values[0]?.value || 0}
+                                {post.insights.data.find(
+                                  (i) => i.name === "post_impressions_unique"
+                                )?.values[0]?.value || 0}
                               </p>
                             </div>
                           </div>
@@ -432,13 +552,17 @@ export default function FacebookAnalytics() {
                   </div>
                 ) : (
                   <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                    <p className="text-gray-600 dark:text-gray-400">No recent posts found.</p>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      No recent posts found.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <p className="text-gray-600 dark:text-gray-400">Please select a Facebook account to view analytics.</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Please select a Facebook account to view analytics.
+            </p>
           )}
         </main>
       </div>
@@ -446,7 +570,15 @@ export default function FacebookAnalytics() {
   );
 }
 
-function MetricCard({ title, value, icon }: { title: string; value: number; icon: string }) {
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: number;
+  icon: string;
+}) {
   const { darkMode } = useDarkMode();
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 hover:shadow-2xl hover:scale-105 transition-all duration-200">
@@ -454,7 +586,9 @@ function MetricCard({ title, value, icon }: { title: string; value: number; icon
         <span className="text-2xl mr-2">{icon}</span>
         <h4 className="font-medium text-textBlack dark:text-white">{title}</h4>
       </div>
-      <p className="text-2xl font-bold text-textBlack dark:text-white">{value.toLocaleString()}</p>
+      <p className="text-2xl font-bold text-textBlack dark:text-white">
+        {value.toLocaleString()}
+      </p>
     </div>
   );
 }
